@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0 (20 Nov 2026)
+
+- **Home Assistant integration (HACS):** map camera (rooms, walls, dock, robot, route), current-room sensor, route-points and map-activity diagnostics.
+- Login once in the config flow; the password is never stored (the cloud session only needs the account ID).
+- Fast polling only while the robot is moving (or the linked vacuum entity is cleaning); slow while docked.
+- Errors are reported by type only, so no signed URLs or tokens reach the logs.
+- X8 coordinates solved: `pixel = (pose − origin) / 10`, pose (0, 0) = dock. Route is kept as raw poses so it stays correct when the map grows.
+- Tests for the engine and renderer; CI adds hassfest and an import check against Home Assistant.
+
 ## 0.0.2 (20 Nov 2026)
 
 - X8 (T2262A) layout decoded: Tuya type-0 header + LZ4, same room-per-pixel encoding. First real floor plan rendered (5 rooms).

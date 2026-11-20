@@ -1,0 +1,216 @@
+"""Home Assistant-free core for the Eufy X8 map (ha-eufy-x8-map, Apache-2.0).
+
+- account_login(): one-off Eufy login. Returns the vacuums plus the Tuya account
+  details. The password is used here only and is never returned or stored.
+- X8Client: talks to the cloud with the stored account details (no password).
+- MapState: holds the latest layout and the route of the current clean, and
+  works out activity, robot position and current room.
+
+Coordinates (X8 T2262A, verified 20 Nov 2026): a pose (x, y) from
+``tuya.m.device.media.latest`` maps to layout pixel ((x - origin_x) / 10,
+(y - origin_y) / 10), where origin comes from the layout header. Pose (0, 0)
+is the dock. Raw poses are stored so the route stays right when the map grows
+and its origin moves.
+"""
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from typing import Any
+
+from .countries import (
+    get_phone_code_by_country_code, get_phone_code_by_region,
+    get_region_by_country_code, get_region_by_phone_code,
+)
+from .eufywebapi import EufyLogon
+from .map_fetch import ROOM_ID_MAX, pose_offset
+from .tuyawebapi import TuyaAPIError, TuyaAPISession
+from .x8map import AnyLayout, Storage, decode_any
+
+
+class LoginError(Exception):
+    """Eufy refused the login or could not be reached. Message is safe to show."""
+
+
+@dataclass(frozen=True)
+class Account:
+    """What the integration stores: no password."""
+
+    user_id: str
+    region: str
+    timezone: str
+    phone_code: str
+
+    def as_dict(self) -> dict[str, str]:
+        return {"user_id": self.user_id, "region": self.region, "timezone": self.timezone, "phone_code": self.phone_code}
+
+
+def account_login(email: str, password: str) -> tuple[Account, list[dict[str, str]]]:
+    """Log in once; return the account details and the vacuums on it."""
+    eufy = EufyLogon(email, password)
+    resp = eufy.get_user_info()
+    if resp is None or resp.status_code != 200:
+        raise LoginError("cannot_connect")
+    user = resp.json()
+    if user.get("res_code") != 1:
+        raise LoginError("invalid_auth")
+    info = user["user_info"]
+    devices_resp = eufy.get_device_info(info["request_host"], info["id"], user["access_token"])
+    settings_resp = eufy.get_user_settings(info["request_host"], info["id"], user["access_token"])
+    if devices_resp is None or settings_resp is None:
+        raise LoginError("cannot_connect")
+    tuya_home = settings_resp.json().get("setting", {}).get("home_setting", {}).get("tuya_home", {})
+    if "tuya_region_code" in tuya_home:
+        region = tuya_home["tuya_region_code"]
+        phone = info.get("phone_code") or get_phone_code_by_region(region)
+    elif info.get("phone_code"):
+        region, phone = get_region_by_phone_code(info["phone_code"]), info["phone_code"]
+    elif info.get("country"):
+        region, phone = get_region_by_country_code(info["country"]), get_phone_code_by_country_code(info["country"])
+    else:
+        region, phone = "EU", "44"
+    vacuums = [
+        {"id": d["id"], "name": d.get("alias_name") or d.get("name") or "RoboVac",
+         "model": d.get("product", {}).get("product_code", "")}
+        for d in devices_resp.json().get("devices", [])
+        if d.get("product", {}).get("appliance") == "Cleaning"
+    ]
+    return Account(info["id"], region, info.get("timezone") or "Europe/London", str(phone)), vacuums
+
+
+class X8Client:
+    """Cloud reads for one vacuum. Blocking: call from an executor."""
+
+    def __init__(self, account: Account, dev_id: str) -> None:
+        self._account = account
+        self.dev_id = dev_id
+        self._session: TuyaAPISession | None = None
+
+    def _tuya(self) -> TuyaAPISession:
+        if self._session is None:
+            a = self._account
+            self._session = TuyaAPISession(username="eh-" + a.user_id, region=a.region,
+                                           timezone=a.timezone, phone_code=a.phone_code)
+        return self._session
+
+    def _retry(self, fn: Any) -> Any:
+        """Run fn(session); on a Tuya error, start a fresh session and try once more."""
+        try:
+            return fn(self._tuya())
+        except TuyaAPIError:
+            self._session = None
+            return fn(self._tuya())
+
+    def fetch_layout(self) -> AnyLayout:
+        def run(session: TuyaAPISession) -> AnyLayout:
+            storage = Storage(session, self.dev_id)
+            code, body = storage.fetch(f"{storage.root}/layout/lay.bin")
+            if code != 200 or not body:
+                raise ConnectionError(f"map download failed (HTTP {code})")
+            return decode_any(body)
+        return self._retry(run)
+
+    def fetch_frames(self) -> tuple[int, list[str]]:
+        def run(session: TuyaAPISession) -> tuple[int, list[str]]:
+            resp = session._request(action="tuya.m.device.media.latest", version="3.0",  # noqa: SLF001
+                                    data={"devId": self.dev_id, "start": 0, "size": 20})
+            return int(resp.get("subRecordId") or 0), list(resp.get("dataList") or [])
+        return self._retry(run)
+
+
+MAX_ROUTE_POINTS = 20_000
+ACTIVE_WINDOW_S = 90.0
+
+
+@dataclass
+class MapState:
+    """Latest map and the current clean's route. Pure data + logic."""
+
+    layout: AnyLayout | None = None
+    layout_time: float | None = None
+    record_id: int = 0
+    poses: list[tuple[int, int]] = field(default_factory=list)  # raw, deduplicated
+    last_frames: tuple[str, ...] = ()
+    last_change: float | None = None  # monotonic time the frames last changed
+    version: int = 0  # bumps whenever something drawable changes
+
+    def update_layout(self, layout: AnyLayout, now: float) -> None:
+        if self.layout is None or layout.pixels != self.layout.pixels or layout.header != self.layout.header:
+            self.version += 1
+        self.layout, self.layout_time = layout, now
+
+    def update_frames(self, record_id: int, frames: list[str], now: float) -> bool:
+        """Add a poll result. Returns True if the route changed."""
+        if not record_id or not frames:
+            return False
+        key = tuple(frames)
+        if key != self.last_frames:
+            if self.last_frames:  # the first poll after start-up is not "activity"
+                self.last_change = now
+            self.last_frames = key
+        if record_id != self.record_id:
+            self.record_id, self.poses = record_id, []
+        changed = False
+        for frame in frames:
+            pose = pose_offset(frame)
+            if pose is not None and (not self.poses or self.poses[-1] != pose):
+                self.poses.append(pose)
+                changed = True
+        if changed:
+            del self.poses[:-MAX_ROUTE_POINTS]
+            self.version += 1
+        return changed
+
+    def is_active(self, now: float) -> bool:
+        return self.last_change is not None and now - self.last_change < ACTIVE_WINDOW_S
+
+    def to_pixel(self, pose: tuple[int, int]) -> tuple[float, float] | None:
+        if not self.layout or "origin" not in self.layout.header:
+            return None
+        ox, oy = self.layout.header["origin"]
+        return (pose[0] - ox) / 10, (pose[1] - oy) / 10
+
+    @property
+    def robot(self) -> tuple[float, float] | None:
+        return self.to_pixel(self.poses[-1]) if self.poses else None
+
+    @property
+    def dock(self) -> tuple[float, float] | None:
+        return self.to_pixel((0, 0))
+
+    def room_at(self, point: tuple[float, float] | None) -> int | None:
+        if not point or not self.layout:
+            return None
+        x, y = int(point[0]), int(point[1])
+        if not (0 <= x < self.layout.width and 0 <= y < self.layout.height):
+            return None
+        room = self.layout.pixels[y * self.layout.width + x] >> 2
+        return room if room <= ROOM_ID_MAX else None
+
+    @property
+    def rooms(self) -> list[int]:
+        if not self.layout:
+            return []
+        return sorted({b >> 2 for b in self.layout.pixels if (b >> 2) <= ROOM_ID_MAX})
+
+    def route_pixels(self, max_jump: float = 60.0) -> list[list[tuple[float, float]]]:
+        """Route in pixels, split where it leaves the map or jumps implausibly."""
+        if not self.layout:
+            return []
+        pieces: list[list[tuple[float, float]]] = []
+        current: list[tuple[float, float]] = []
+        w, h = self.layout.width, self.layout.height
+        for pose in self.poses:
+            p = self.to_pixel(pose)
+            if p is None or not (-3 <= p[0] < w + 3 and -3 <= p[1] < h + 3):
+                if current:
+                    pieces.append(current)
+                current = []
+                continue
+            if current and math.hypot(p[0] - current[-1][0], p[1] - current[-1][1]) > max_jump:
+                pieces.append(current)
+                current = []
+            current.append(p)
+        if current:
+            pieces.append(current)
+        return pieces

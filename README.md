@@ -8,12 +8,26 @@ The X8 builds a SLAM map, but no existing Home Assistant integration shows it. T
 
 | Phase | What | State |
 |---|---|---|
-| 1 | Read-only probe: does the cloud map method work on the X8? | **Map: yes** (T2262A, Tuya type-0 header). **Live position: not yet** (cloud pose frame static); probe 1b looks for a route file |
-| 2 | HACS integration: map camera, position sensors, room list | Planned |
+| 1 | Read-only probe: does the cloud map method work on the X8? | **Done.** Map and live position both work on the T2262A |
+| 2 | HACS integration: map camera, current room, route | **0.1.0, ready to test** |
 | 3 | Controls from the map (tap-to-go, rooms) | Stretch |
 | 4 | Fully local map (no Eufy cloud) via the robot's P2P channel | Research |
 
 Phase 1–2 fetch the map from Eufy's cloud (the room layout file `lay.bin` plus live position frames). Robot control stays local with your current integration. The long-term goal is to drop the cloud.
+
+## Install (HACS)
+
+1. HACS → ⋮ → **Custom repositories** → add `https://github.com/mcpannett/ha-eufy-x8-map` as **Integration**.
+2. Install **Eufy X8 Map** and restart Home Assistant.
+3. Settings → Devices & services → **Add integration** → **Eufy X8 Map**, then log in with your Eufy account. The password is used once and **not stored**: only your Eufy account ID and region are kept.
+4. Optional: open the integration's **Configure** and pick your existing vacuum entity, so the map switches to fast updates the moment it starts cleaning.
+
+**Entities**
+- `camera.<name>_map_map`: floor plan with room colours, walls, dock (red), robot (blue) and this clean's route (white).
+- `sensor.<name>_map_current_room`: the room the robot is in (`Room 1`–`Room n`, numbered as the X8 numbers them).
+- Diagnostic: route points, and map activity (`live` / `idle`).
+
+**Cloud use:** about every 2 s while the robot moves (position) and every 20 s (map). While docked, once a minute (to spot a new clean) and the map hourly. Robot control stays with your existing integration.
 
 ## Phase 1 probe
 
@@ -32,7 +46,7 @@ python probe.py --watch 10
 3. One byte per pixel: high 6 bits room id (0–31), low 2 bits pixel type.
 4. Live position: `tuya.m.device.media.latest` pose frames (protobuf, zigzag x/y offsets from the dock, 1/10 pixel).
 
-Verified on a T2276 by the original author; **not yet verified on the X8 (T2261/T2262)** — that is what Phase 1 checks.
+On the X8 (T2262A) the layout uses a Tuya type-0 header (width, height, signed origin, LZ4) and live poses map to pixels as `(pose − origin) / 10`; pose (0, 0) is the dock. Verified on 20 Nov 2026: 212 of 213 live points landed on the floor plan.
 
 ## Credits and licence
 

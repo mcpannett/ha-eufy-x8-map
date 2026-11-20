@@ -13,5 +13,29 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install requests cryptography pytest
-      - run: python -m py_compile tools/probe/probe.py tools/probe/x8probe/*.py
+      - run: python -m py_compile tools/probe/probe.py tools/probe/x8probe/*.py custom_components/eufy_x8_map/*.py custom_components/eufy_x8_map/lib/*.py
       - run: python -m pytest -q tests
+
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: home-assistant/actions/hassfest@master
+
+  ha-import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: pip install homeassistant
+      - name: Import every integration module against real Home Assistant
+        run: |
+          python - <<'PY'
+          import importlib, json
+          for mod in ["__init__", "config_flow", "coordinator", "camera", "sensor", "entity"]:
+              importlib.import_module(f"custom_components.eufy_x8_map.{mod}" if mod != "__init__" else "custom_components.eufy_x8_map")
+              print("ok", mod)
+          json.load(open("custom_components/eufy_x8_map/manifest.json"))
+          PY

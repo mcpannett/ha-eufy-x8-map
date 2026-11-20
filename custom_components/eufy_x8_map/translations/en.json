@@ -1,0 +1,58 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Eufy account",
+        "description": "Your password is used once to log in and is not stored.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "pick": {
+        "title": "Choose the vacuum",
+        "data": {
+          "device_id": "Vacuum"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Eufy refused the email or password.",
+      "cannot_connect": "Couldn't reach Eufy.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This vacuum's map is already set up.",
+      "no_vacuums": "No vacuums found on this Eufy account."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Map options",
+        "description": "Optional: pick your existing vacuum entity so the map switches to fast updates as soon as it starts cleaning.",
+        "data": {
+          "vacuum_entity": "Vacuum entity"
+        }
+      }
+    }
+  },
+  "entity": {
+    "camera": {
+      "map": {
+        "name": "Map"
+      }
+    },
+    "sensor": {
+      "current_room": {
+        "name": "Current room"
+      },
+      "route_points": {
+        "name": "Route points"
+      },
+      "map_activity": {
+        "name": "Map activity"
+      }
+    }
+  }
+}
