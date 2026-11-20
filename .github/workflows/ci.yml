@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: pip install requests cryptography pytest
+      - run: python -m py_compile tools/probe/probe.py tools/probe/x8probe/*.py
+      - run: python -m pytest -q tests
