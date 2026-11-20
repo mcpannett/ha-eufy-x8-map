@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 (20 Nov 2026)
+
+- Walls drawn light grey so they show on dark dashboards.
+- Current room reads **Docked** while the robot sits at the dock.
+- Confirmed on hardware: 0.1.1 loads and decodes the X8 map after a clean (256×190, 5 rooms).
+
 ## 0.1.1 (20 Nov 2026)
 
 - **Fix:** a failed map download no longer stops set-up. Position, room and route keep working, and the map retries every minute.

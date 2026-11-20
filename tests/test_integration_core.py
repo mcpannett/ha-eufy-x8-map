@@ -121,3 +121,11 @@ def test_errors_carry_header_not_secrets():
         decode_any(_hdr(4, 3, 50, 12) + b"\x00" * 5)
     with pytest.raises(MapFetchError, match="too short"):
         decode_any(b"\x00" * 10)
+
+
+def test_at_dock():
+    st = MapState(); st.update_layout(layout(), 0)
+    st.update_frames(5, [pose(9, -40)], 1.0)          # ~4 px from dock, first poll = not active
+    assert st.at_dock(1.0)
+    st.update_frames(5, [pose(-150, 50)], 2.0)
+    assert not st.at_dock(3.0)                       # moving and away from dock

@@ -27,7 +27,10 @@ class CurrentRoomSensor(X8MapEntity, SensorEntity):
 
     @property
     def native_value(self) -> str | None:
-        room = self.coordinator.state.room_at(self.coordinator.state.robot)
+        state = self.coordinator.state
+        if state.at_dock(time.monotonic()):
+            return "Docked"
+        room = state.room_at(state.robot)
         return None if room is None else f"Room {room}"
 
 

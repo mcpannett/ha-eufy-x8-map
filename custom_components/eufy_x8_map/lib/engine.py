@@ -178,6 +178,11 @@ class MapState:
     def dock(self) -> tuple[float, float] | None:
         return self.to_pixel((0, 0))
 
+    def at_dock(self, now: float, radius_px: float = 6.0) -> bool:
+        """Robot sits within radius_px of the dock and nothing is moving."""
+        r, d = self.robot, self.dock
+        return bool(r and d and not self.is_active(now) and math.hypot(r[0] - d[0], r[1] - d[1]) <= radius_px)
+
     def room_at(self, point: tuple[float, float] | None) -> int | None:
         if not point or not self.layout:
             return None

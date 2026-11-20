@@ -7,7 +7,7 @@ import zlib
 from .engine import MapState
 
 BACKGROUND = (0, 0, 0, 0)          # transparent outside the house
-WALL = (45, 45, 48, 255)
+WALL = (176, 176, 184, 255)       # light grey: visible on dark and light dashboards
 OTHER = (150, 150, 150, 255)       # 0xFC: carpet/edge/unknown marks
 ROUTE = (255, 255, 255, 230)
 ROBOT = (25, 118, 210, 255)
