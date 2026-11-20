@@ -41,14 +41,31 @@ def decode_any(raw: bytes) -> AnyLayout:
         lay = decode_layout(raw)
         return AnyLayout("0pam", lay.width, lay.height, lay.pixels, {"dock": lay.dock})
     if len(raw) < 24:
-        raise MapFetchError("layout too short")
+        raise MapFetchError(f"layout too short ({len(raw)} bytes)")
     be = lambda a, b, s=False: int.from_bytes(raw[a:b], "big", signed=s)  # noqa: E731
     w, h, clen, total = be(4, 6), be(6, 8), be(18, 20), be(20, 24)
-    if raw[3] != 0 or not w or not h or total != w * h or 24 + clen > len(raw):
-        raise MapFetchError(f"unknown layout header {raw[:4].hex()}")
-    header = {"version": raw[0], "map_id": be(1, 3), "origin": (be(8, 10, True), be(10, 12, True)),
+    size = w * h
+    header = {"version": raw[0], "map_id": be(1, 3), "type": raw[3], "origin": (be(8, 10, True), be(10, 12, True)),
               "f12": be(12, 14, True), "f14": be(14, 16, True), "f16": be(16, 18, True)}
-    return AnyLayout("tuya0", w, h, _lz4_block_decompress(raw[24:24 + clen], total), header)
+    payload = raw[24:]
+    if not w or not h or w > 4000 or h > 4000:
+        raise MapFetchError(f"unknown layout header {raw[:24].hex()} ({len(raw)} bytes)")
+    if clen == 0 or (len(payload) == size and clen in (0, size)):
+        # Uncompressed variant: the pixels follow the header as-is.
+        if len(payload) < size:
+            raise MapFetchError(f"uncompressed layout short: {len(payload)} < {size} (header {raw[:24].hex()})")
+        return AnyLayout("tuya0-raw", w, h, bytes(payload[:size]), header)
+    if 24 + clen > len(raw):
+        raise MapFetchError(f"layout truncated: need {24 + clen}, have {len(raw)} (header {raw[:24].hex()})")
+    try:
+        pixels = _lz4_block_decompress(payload[:clen], size)
+    except MapFetchError:
+        raise
+    except Exception as err:  # noqa: BLE001 - malformed block
+        raise MapFetchError(f"LZ4 failed ({type(err).__name__}); header {raw[:24].hex()}") from None
+    if total not in (size, 0):
+        header["declared_total"] = total
+    return AnyLayout("tuya0", w, h, pixels, header)
 
 
 # --- device storage (read-only) ---------------------------------------------

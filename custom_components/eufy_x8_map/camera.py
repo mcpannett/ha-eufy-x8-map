@@ -44,6 +44,8 @@ class X8MapCamera(X8MapEntity, Camera):
             "route_points": len(state.poses),
             "robot_pixel": state.robot,
             "dock_pixel": state.dock,
+            "map_format": lay.fmt if lay else None,
+            "map_error": self.coordinator.map_error,
         }
 
     @callback

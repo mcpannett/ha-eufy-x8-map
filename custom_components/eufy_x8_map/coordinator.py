@@ -14,6 +14,7 @@ from .const import (
     CONF_VACUUM_ENTITY, DOMAIN, IDLE_MAP_S, IDLE_POLL_S,
 )
 from .lib.engine import Account, MapState, X8Client
+from .lib.map_fetch import MapFetchError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +28,8 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self.entry = entry
         self.client = X8Client(Account(**entry.data[CONF_ACCOUNT]), entry.data[CONF_DEVICE_ID])
         self.state = MapState()
+        self.map_error: str | None = None
+        self._map_retry_at = 0.0
 
     def _vacuum_active(self) -> bool:
         entity = self.entry.options.get(CONF_VACUUM_ENTITY)
@@ -37,13 +40,31 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         now = time.monotonic()
         try:
             record, frames = await self.hass.async_add_executor_job(self.client.fetch_frames)
-            self.state.update_frames(record, frames, now)
-            active = self.state.is_active(now) or self._vacuum_active()
-            map_age = None if self.state.layout_time is None else now - self.state.layout_time
-            if map_age is None or map_age >= (ACTIVE_MAP_S if active else IDLE_MAP_S):
-                layout = await self.hass.async_add_executor_job(self.client.fetch_layout)
-                self.state.update_layout(layout, now)
         except Exception as err:  # noqa: BLE001 - library errors can carry signed URLs; report the type only
             raise UpdateFailed(f"Eufy cloud read failed ({type(err).__name__})") from None
+        self.state.update_frames(record, frames, now)
+        active = self.state.is_active(now) or self._vacuum_active()
+        map_age = None if self.state.layout_time is None else now - self.state.layout_time
+        if (map_age is None or map_age >= (ACTIVE_MAP_S if active else IDLE_MAP_S)) and now >= self._map_retry_at:
+            await self._refresh_map(now)
         self.update_interval = timedelta(seconds=ACTIVE_POLL_S if active else IDLE_POLL_S)
         return self.state
+
+    async def _refresh_map(self, now: float) -> None:
+        """Map failures never stop the integration: the position keeps working and the reason is shown."""
+        try:
+            layout = await self.hass.async_add_executor_job(self.client.fetch_layout)
+        except MapFetchError as err:  # our own messages: no URLs, tokens or ids
+            error = str(err)
+        except Exception as err:  # noqa: BLE001 - other errors may carry URLs; type only
+            error = type(err).__name__
+        else:
+            self.state.update_layout(layout, now)
+            if self.map_error:
+                _LOGGER.info("Map download working again")
+            self.map_error = None
+            return
+        if error != self.map_error:
+            _LOGGER.warning("Map download failed: %s", error)
+        self.map_error = error
+        self._map_retry_at = now + 60

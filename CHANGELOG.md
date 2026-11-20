@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 (20 Nov 2026)
+
+- **Fix:** a failed map download no longer stops set-up. Position, room and route keep working, and the map retries every minute.
+- The real reason for a map failure is now shown (camera attribute `map_error` and one log warning). These messages hold no URLs, tokens or IDs.
+- Map decoder accepts more X8 variants: uncompressed layouts and other header type values.
+
 ## 0.1.0 (20 Nov 2026)
 
 - **Home Assistant integration (HACS):** map camera (rooms, walls, dock, robot, route), current-room sensor, route-points and map-activity diagnostics.

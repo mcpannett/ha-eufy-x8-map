@@ -101,3 +101,23 @@ def test_client_retries_once_with_fresh_session(monkeypatch):
             return {"subRecordId": 9, "dataList": ["ab"]}
     monkeypatch.setattr("lib.engine.TuyaAPISession", FakeSession)
     assert client.fetch_frames() == (9, ["ab"]) and len(sessions) == 2
+
+
+def _hdr(w, h, clen, total, origin=(-300, -100)):
+    return bytes([0, 0x49, 0, 1]) + w.to_bytes(2, "big") + h.to_bytes(2, "big") + origin[0].to_bytes(2, "big", signed=True) \
+        + origin[1].to_bytes(2, "big", signed=True) + b"\x00\x1f\xff\xb3\x00\x00" + clen.to_bytes(2, "big") + total.to_bytes(4, "big")
+
+
+def test_uncompressed_variant_and_type_byte():
+    px = bytes([4] * 12)
+    lay = decode_any(_hdr(4, 3, 0, 12) + px)
+    assert lay.fmt == "tuya0-raw" and lay.pixels == px and lay.header["type"] == 1
+
+
+def test_errors_carry_header_not_secrets():
+    import pytest
+    from lib.map_fetch import MapFetchError
+    with pytest.raises(MapFetchError, match="truncated"):
+        decode_any(_hdr(4, 3, 50, 12) + b"\x00" * 5)
+    with pytest.raises(MapFetchError, match="too short"):
+        decode_any(b"\x00" * 10)
