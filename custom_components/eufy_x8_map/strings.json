@@ -52,6 +52,22 @@
       },
       "map_activity": {
         "name": "Map activity"
+      },
+      "robot_status": {
+        "name": "Robot status"
+      },
+      "recorded_commands": {
+        "name": "Recorded app commands"
+      }
+    },
+    "button": {
+      "refresh_map": {
+        "name": "Refresh map"
+      }
+    },
+    "switch": {
+      "record_commands": {
+        "name": "Record app commands"
       }
     }
   }

@@ -25,6 +25,7 @@ from .countries import (
 from .eufywebapi import EufyLogon
 from .map_fetch import ROOM_ID_MAX, pose_offset
 from .tuyawebapi import TuyaAPIError, TuyaAPISession
+from .commands import HISTORY_ACTIONS, pick_dps
 from .x8map import AnyLayout, Storage, decode_any
 
 
@@ -116,6 +117,27 @@ class X8Client:
                                     data={"devId": self.dev_id, "start": 0, "size": 20})
             return int(resp.get("subRecordId") or 0), list(resp.get("dataList") or [])
         return self._retry(run)
+
+    def fetch_dps(self) -> dict[str, Any]:
+        """Current state DPS (15, 122, 124, 125, 142 only; never the local key)."""
+        return self._retry(lambda session: pick_dps(session._request(  # noqa: SLF001
+            action="tuya.m.device.get", version="1.0", data={"devId": self.dev_id})))
+
+    def fetch_dp_history(self, start_ms: int, end_ms: int, dp_ids: str = "124,125") -> tuple[str | None, Any, list[str]]:
+        """Try the cloud DP-log calls. Returns (action used, raw result, errors by action)."""
+        errors: list[str] = []
+        for action, version in HISTORY_ACTIONS:
+            def run(session: TuyaAPISession, action: str = action, version: str = version) -> Any:
+                return session._request(action=action, version=version, data={  # noqa: SLF001
+                    "devId": self.dev_id, "dpIds": dp_ids, "offset": 0, "limit": 50,
+                    "startTime": str(start_ms), "endTime": str(end_ms), "sortType": "DESC"})
+            try:
+                return action, run(self._tuya()), errors  # no session reset: an unknown call is not a session problem
+            except TuyaAPIError as err:
+                errors.append(f"{action}: {str(err).split(':')[0]}")
+            except Exception as err:  # noqa: BLE001
+                errors.append(f"{action}: {type(err).__name__}")
+        return None, None, errors
 
 
 MAX_ROUTE_POINTS = 20_000

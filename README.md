@@ -25,7 +25,9 @@ Phase 1–2 fetch the map from Eufy's cloud (the room layout file `lay.bin` plus
 **Entities**
 - `camera.<name>_map_map`: floor plan with room colours, walls, dock (red), robot (blue) and this clean's route (white).
 - `sensor.<name>_map_current_room`: the room the robot is in (`Room 1`–`Room n`, numbered as the X8 numbers them).
-- Diagnostic: route points, and map activity (`live` / `idle`).
+- `sensor.<name>_map_robot_status`: the X8's own status (Charging, Running, Recharge…).
+- `button.<name>_map_refresh_map`: re-download the map now (it also refreshes by itself when you edit the map in the app).
+- Diagnostic: route points, map activity (`live` / `idle`), and **Record app commands** (switch) + **Recorded app commands** (sensor): turn the switch on, use the Eufy app (clean a room, go to a spot, draw a zone), and the decoded commands appear in the sensor's attributes. Read-only.
 
 **Cloud use:** about every 2 s while the robot moves (position) and every 20 s (map). While docked, once a minute (to spot a new clean) and the map hourly. Robot control stays with your existing integration.
 

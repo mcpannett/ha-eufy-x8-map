@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 (20 Nov 2026)
+
+- **Map edits show up fast:** the integration reads the X8's map version (DPS 125) every minute and re-downloads the map as soon as it changes. New **Refresh map** button.
+- **Robot status** sensor (X8 work status: Charging, Running, Recharge, …).
+- **Record app commands** (diagnostic switch, off by default; read-only, sends nothing): records the commands the Eufy app sends (DPS 124 echoes), decoded, in the **Recorded app commands** sensor. Also tries the cloud DP history for the last 48 h. This is groundwork for room cleaning and tap-to-go.
+- Only DPS 15/122/124/125/142 are kept from the device record; the local key never leaves the client.
+- Options changes no longer reload the integration.
+
 ## 0.1.2 (20 Nov 2026)
 
 - Walls drawn light grey so they show on dark dashboards.

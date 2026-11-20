@@ -8,11 +8,14 @@ from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ACTIVE_MAP_S, ACTIVE_POLL_S, ACTIVE_VACUUM_STATES, CONF_ACCOUNT, CONF_DEVICE_ID,
-    CONF_VACUUM_ENTITY, DOMAIN, IDLE_MAP_S, IDLE_POLL_S,
+    CONF_RECORD_COMMANDS, CONF_VACUUM_ENTITY, DOMAIN, DPS_POLL_S, IDLE_MAP_S, IDLE_POLL_S,
+    RECORD_DPS_POLL_S, RECORD_HISTORY_S,
 )
+from .lib.commands import CommandRecorder, history_entries, map_version
 from .lib.engine import Account, MapState, X8Client
 from .lib.map_fetch import MapFetchError
 
@@ -30,6 +33,17 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self.state = MapState()
         self.map_error: str | None = None
         self._map_retry_at = 0.0
+        self.force_map = False
+        self.dps: dict = {}
+        self.recorder = CommandRecorder()
+        self.history_status: str | None = None
+        self._last_dps = -1e9
+        self._last_history = -1e9
+        self._map_version = None
+
+    @property
+    def recording(self) -> bool:
+        return bool(self.entry.options.get(CONF_RECORD_COMMANDS))
 
     def _vacuum_active(self) -> bool:
         entity = self.entry.options.get(CONF_VACUUM_ENTITY)
@@ -43,12 +57,52 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         except Exception as err:  # noqa: BLE001 - library errors can carry signed URLs; report the type only
             raise UpdateFailed(f"Eufy cloud read failed ({type(err).__name__})") from None
         self.state.update_frames(record, frames, now)
+        await self._poll_dps(now)
         active = self.state.is_active(now) or self._vacuum_active()
         map_age = None if self.state.layout_time is None else now - self.state.layout_time
-        if (map_age is None or map_age >= (ACTIVE_MAP_S if active else IDLE_MAP_S)) and now >= self._map_retry_at:
+        due = map_age is None or map_age >= (ACTIVE_MAP_S if active else IDLE_MAP_S)
+        if (self.force_map or due) and now >= self._map_retry_at:
+            self.force_map = False
             await self._refresh_map(now)
         self.update_interval = timedelta(seconds=ACTIVE_POLL_S if active else IDLE_POLL_S)
         return self.state
+
+    async def _poll_dps(self, now: float) -> None:
+        """Robot state + map version (and, when recording, app commands). Never fatal."""
+        if now - self._last_dps < (RECORD_DPS_POLL_S if self.recording else DPS_POLL_S):
+            return
+        self._last_dps = now
+        try:
+            self.dps = await self.hass.async_add_executor_job(self.client.fetch_dps)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("DPS read failed: %s", type(err).__name__)
+            return
+        version = map_version(self.dps)
+        if version is not None and self._map_version is not None and version != self._map_version:
+            _LOGGER.info("Map edited in the app; refreshing")
+            self.force_map = True
+            self._map_retry_at = 0.0
+        if version is not None:
+            self._map_version = version
+        if self.recording:
+            stamp = dt_util.utcnow().isoformat(timespec="seconds")
+            for dp in ("124", "125", "142"):
+                if dp in self.dps:
+                    self.recorder.add(dp, self.dps[dp], stamp, "state")
+            if now - self._last_history >= RECORD_HISTORY_S:
+                self._last_history = now
+                await self._poll_history()
+
+    async def _poll_history(self) -> None:
+        end = int(dt_util.utcnow().timestamp() * 1000)
+        action, result, errors = await self.hass.async_add_executor_job(
+            self.client.fetch_dp_history, end - 48 * 3600 * 1000, end)
+        if action is None:
+            self.history_status = "unavailable: " + "; ".join(errors)
+            return
+        entries = history_entries(result)
+        added = sum(self.recorder.add(e["dp"], e["value"], e["t"], "history") for e in entries)
+        self.history_status = f"ok via {action}: {len(entries)} entries, {added} new"
 
     async def _refresh_map(self, now: float) -> None:
         """Map failures never stop the integration: the position keeps working and the reason is shown."""

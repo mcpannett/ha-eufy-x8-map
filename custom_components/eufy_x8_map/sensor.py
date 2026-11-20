@@ -16,7 +16,8 @@ from .entity import X8MapEntity
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: X8MapCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([CurrentRoomSensor(coordinator), RoutePointsSensor(coordinator), MapActivitySensor(coordinator)])
+    async_add_entities([CurrentRoomSensor(coordinator), RoutePointsSensor(coordinator), MapActivitySensor(coordinator),
+                        RobotStatusSensor(coordinator), RecordedCommandsSensor(coordinator)])
 
 
 class CurrentRoomSensor(X8MapEntity, SensorEntity):
@@ -56,3 +57,37 @@ class MapActivitySensor(X8MapEntity, SensorEntity):
     @property
     def native_value(self) -> str:
         return "live" if self.coordinator.state.is_active(time.monotonic()) else "idle"
+
+
+class RobotStatusSensor(X8MapEntity, SensorEntity):
+    """The X8's own work status (DPS 15), e.g. Charging, Running, Recharge."""
+
+    def __init__(self, coordinator: X8MapCoordinator) -> None:
+        super().__init__(coordinator, "robot_status")
+
+    @property
+    def native_value(self) -> str | None:
+        value = self.coordinator.dps.get("15")
+        return value if isinstance(value, str) else None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {"detail": self.coordinator.dps.get("122")}
+
+
+class RecordedCommandsSensor(X8MapEntity, SensorEntity):
+    """Count of recorded app commands; the decoded commands are in the attributes."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: X8MapCoordinator) -> None:
+        super().__init__(coordinator, "recorded_commands")
+
+    @property
+    def native_value(self) -> int:
+        return len(self.coordinator.recorder.items)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {"recording": self.coordinator.recording, "history": self.coordinator.history_status,
+                "commands": self.coordinator.recorder.items[:25]}
