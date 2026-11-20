@@ -1,5 +1,10 @@
 # Changelog
 
+## Tools (20 Nov 2026)
+
+- `decode_capture.bat` / `tools/probe/decode_capture.py`: decrypt Eufy app ↔ X8 messages from a PCAPdroid capture (pcap or pcapng; Tuya v3.3, AES-ECB with the local key held in memory only). Guide: `docs/capture-guide.md`.
+- Recorder finding: the cloud DP history (`tuya.m.smart.operate.all.log`) holds DPS 124 echoes with method names (`clear`, `divideRoom`, `mergeRooms`, `renameRoom`) and results (S sent, O ok, F failed), but no command data.
+
 ## 0.2.2 (20 Nov 2026)
 
 - Current room shows **Docked** when the X8 reports Charging or Sleeping, including straight after an HA restart (it was "unknown" until the robot moved).
