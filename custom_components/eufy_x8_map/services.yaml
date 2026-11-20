@@ -1,0 +1,43 @@
+command:
+  fields:
+    method:
+      required: true
+      example: goto
+      selector:
+        text:
+    data:
+      required: false
+      example: '{"target": "go", "x": 0, "y": 0}'
+      selector:
+        object:
+return_home:
+goto:
+  fields:
+    x:
+      example: 0
+      selector:
+        number:
+          min: -100000
+          max: 100000
+          mode: box
+    y:
+      example: 0
+      selector:
+        number:
+          min: -100000
+          max: 100000
+          mode: box
+    pixel_x:
+      example: 120
+      selector:
+        number:
+          min: 0
+          max: 4000
+          mode: box
+    pixel_y:
+      example: 130
+      selector:
+        number:
+          min: 0
+          max: 4000
+          mode: box

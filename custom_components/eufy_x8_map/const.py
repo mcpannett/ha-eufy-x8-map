@@ -20,3 +20,5 @@ RECORD_HISTORY_S = 300     # cloud DP history while the recorder is on
 CONF_ROOM_NAMES = "room_names"      # "1=Living Room, 2=Hallway"
 CONF_ORIENTATION = "orientation"    # "stored" | "app" (matches the Eufy app: transposed)
 DOCKED_STATUSES = {"Charging", "Sleeping"}
+CONF_ALLOW_COMMANDS = "allow_commands"  # test-command layer gate, off by default
+GOTO_CLEAR_WAIT_S = 35                  # the app sends "clear" ~35 s before "goto"

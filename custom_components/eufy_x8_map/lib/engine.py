@@ -118,6 +118,13 @@ class X8Client:
             return int(resp.get("subRecordId") or 0), list(resp.get("dataList") or [])
         return self._retry(run)
 
+    def publish_dps(self, dps: dict[str, Any]) -> Any:
+        """Send DPS to the robot through the cloud (doesn't need the robot's single local connection)."""
+        import json as _json
+        return self._retry(lambda session: session._request(  # noqa: SLF001
+            action="tuya.m.device.dp.publish", version="1.0",
+            data={"devId": self.dev_id, "gwId": self.dev_id, "dps": _json.dumps(dps, separators=(",", ":"))}))
+
     def fetch_dps(self) -> dict[str, Any]:
         """Current state DPS (15, 122, 124, 125, 142 only; never the local key)."""
         return self._retry(lambda session: pick_dps(session._request(  # noqa: SLF001
@@ -191,6 +198,13 @@ class MapState:
             return None
         ox, oy = self.layout.header["origin"]
         return (pose[0] - ox) / 10, (pose[1] - oy) / 10
+
+    def to_pose(self, pixel: tuple[float, float]) -> tuple[int, int] | None:
+        """Inverse of to_pixel (stored orientation)."""
+        if not self.layout or "origin" not in self.layout.header:
+            return None
+        ox, oy = self.layout.header["origin"]
+        return round(pixel[0] * 10 + ox), round(pixel[1] * 10 + oy)
 
     @property
     def robot(self) -> tuple[float, float] | None:

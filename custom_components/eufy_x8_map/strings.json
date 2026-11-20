@@ -70,6 +70,51 @@
     "switch": {
       "record_commands": {
         "name": "Record app commands"
+      },
+      "allow_commands": {
+        "name": "Allow commands"
+      }
+    }
+  },
+  "services": {
+    "command": {
+      "name": "Send command",
+      "description": "Send a command to the X8 (testing). Needs 'Allow commands' on. Map-changing methods are always refused.",
+      "fields": {
+        "method": {
+          "name": "Method",
+          "description": "e.g. goto, clear, or a cleaning method."
+        },
+        "data": {
+          "name": "Data",
+          "description": "Optional command data (JSON object)."
+        }
+      }
+    },
+    "return_home": {
+      "name": "Return home",
+      "description": "Send the X8 back to its dock. Needs 'Allow commands' on."
+    },
+    "goto": {
+      "name": "Go to",
+      "description": "Send the X8 to a point (sends 'clear', waits 35 s, then 'goto'). Give x/y in robot units or pixel_x/pixel_y on the map. Needs 'Allow commands' on.",
+      "fields": {
+        "x": {
+          "name": "X",
+          "description": "Robot units."
+        },
+        "y": {
+          "name": "Y",
+          "description": "Robot units."
+        },
+        "pixel_x": {
+          "name": "Map pixel X",
+          "description": "Map pixel (stored layout)."
+        },
+        "pixel_y": {
+          "name": "Map pixel Y",
+          "description": "Map pixel (stored layout)."
+        }
       }
     }
   }

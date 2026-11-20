@@ -12,10 +12,10 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     ACTIVE_MAP_S, ACTIVE_POLL_S, ACTIVE_VACUUM_STATES, CONF_ACCOUNT, CONF_DEVICE_ID,
-    CONF_RECORD_COMMANDS, CONF_VACUUM_ENTITY, DOMAIN, DPS_POLL_S, IDLE_MAP_S, IDLE_POLL_S,
+    CONF_ALLOW_COMMANDS, CONF_RECORD_COMMANDS, CONF_VACUUM_ENTITY, DOMAIN, DPS_POLL_S, IDLE_MAP_S, IDLE_POLL_S,
     RECORD_DPS_POLL_S, RECORD_HISTORY_S,
 )
-from .lib.commands import CommandRecorder, history_entries, map_version
+from .lib.commands import CommandRecorder, encode_command, history_entries, map_version
 from .lib.engine import Account, MapState, X8Client
 from .lib.map_fetch import MapFetchError
 
@@ -40,6 +40,25 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._last_dps = -1e9
         self._last_history = -1e9
         self._map_version = None
+
+    @property
+    def commands_allowed(self) -> bool:
+        return bool(self.entry.options.get(CONF_ALLOW_COMMANDS))
+
+    async def async_send(self, dps: dict, label: str) -> None:
+        """Send DPS through the cloud. Only when 'Allow commands' is on. Logged and recorded."""
+        if not self.commands_allowed:
+            raise PermissionError("Turn on 'Allow commands' on the map device first")
+        await self.hass.async_add_executor_job(self.client.publish_dps, dps)
+        _LOGGER.info("Sent to robot: %s", label)
+        self.recorder.items.insert(0, {"dp": ",".join(dps), "time": dt_util.utcnow().isoformat(timespec="seconds"),
+                                       "source": "sent", "label": label})
+        del self.recorder.items[self.recorder.max_items:]
+        self._last_dps = -1e9  # look for the echo straight away
+        self.async_update_listeners()
+
+    async def async_command(self, method: str, data=None) -> None:
+        await self.async_send({"124": encode_command(method, data)}, f"{method} {data if data is not None else ''}".strip())
 
     @property
     def recording(self) -> bool:

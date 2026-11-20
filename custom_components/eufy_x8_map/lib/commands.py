@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import base64
 import json
+import re
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -91,3 +93,29 @@ def map_version(dps: dict[str, Any]) -> Any:
     """Map version from DPS 125, or None."""
     info = decode_b64_json(dps.get("125"))
     return (info.get("defaultID"), info.get("version")) if isinstance(info, dict) else None
+
+
+# --- sending (test-command layer) ---------------------------------------------
+# Never sent: anything that could change or lose the saved map, settings or firmware.
+BLOCKED = re.compile(r"divide|merge|rename|reset|delete|remove|erase|save|map|ota|firmware|factory|update|upgrade|wifi|config|set", re.I)
+ALLOWED = re.compile(r"^(goto|clear|stop|pause|resume|home|recharge|locate|[a-z]*clean[a-z]*|[a-z]*room[a-z]*|[a-z]*zone[a-z]*)$", re.I)
+
+
+class CommandRefused(ValueError):
+    """The method is not on the safe list."""
+
+
+def check_method(method: str) -> str:
+    method = (method or "").strip()
+    if not method or BLOCKED.search(method) or not ALLOWED.match(method):
+        raise CommandRefused(f"method '{method}' is not on the safe list")
+    return method
+
+
+def encode_command(method: str, data: Any = None, now_ms: int | None = None) -> str:
+    """DPS 124 value: base64 of {"method", "data"?, "timestamp"}."""
+    payload: dict[str, Any] = {"method": check_method(method)}
+    if data is not None:
+        payload["data"] = data
+    payload["timestamp"] = now_ms if now_ms is not None else round(time.time() * 1000)
+    return base64.b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode()

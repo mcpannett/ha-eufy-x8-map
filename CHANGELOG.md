@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 (20 Nov 2026)
+
+- **Test-command layer** (for building room cleaning and tap-to-go), sent through Eufy's cloud so it never takes the robot's single local connection from your control integration:
+  - `eufy_x8_map.return_home`, `eufy_x8_map.goto` (robot units or map pixels; sends `clear`, waits 35 s, then `goto`, as the app does), `eufy_x8_map.command` (DPS 124 method + data).
+  - **Allow commands** switch (config, **off by default**): every service refuses while it is off.
+  - Safety list: only goto/clear/stop/pause/resume/home and clean/room/zone methods; anything that could change or lose the map, settings or firmware (divide, merge, rename, reset, delete, save, map, OTA, Wi-Fi, set…) is always refused.
+  - Every sent command is logged and shown in Recorded app commands (source `sent`), next to the robot's echo.
+
 ## Tools (20 Nov 2026)
 
 - `decode_capture.bat` / `tools/probe/decode_capture.py`: decrypt Eufy app ↔ X8 messages from a PCAPdroid capture (pcap or pcapng; Tuya v3.3, AES-ECB with the local key held in memory only). Guide: `docs/capture-guide.md`.

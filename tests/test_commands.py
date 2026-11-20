@@ -33,3 +33,25 @@ def test_history_entries_any_shape():
 def test_map_version():
     assert map_version({"125": b64({"defaultID": 3, "version": 9})}) == (3, 9)
     assert map_version({}) is None and decode_b64_json("short") is None
+
+
+def test_safe_list():
+    import pytest
+    from lib.commands import CommandRefused, check_method, encode_command
+    for ok in ["goto", "clear", "stop", "roomClean", "selectRoomsClean", "zoneClean", "spotClean"]:
+        assert check_method(ok) == ok
+    for bad in ["divideRoom", "mergeRooms", "renameRoom", "resetMap", "deleteMap", "saveMap", "otaUpdate",
+                "factoryReset", "setWifi", "", "drop table", "cleanMap"]:
+        with pytest.raises(CommandRefused):
+            check_method(bad)
+    value = encode_command("goto", {"target": "go", "x": 1, "y": -2}, now_ms=5)
+    assert json.loads(base64.b64decode(value)) == {"method": "goto", "data": {"target": "go", "x": 1, "y": -2}, "timestamp": 5}
+
+
+def test_pixel_pose_round_trip():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from test_integration_core import layout
+    from lib.engine import MapState
+    st = MapState(); st.update_layout(layout(origin=(-2320, -770)), 0)
+    assert st.to_pose((232.0, 77.0)) == (0, 0)
+    assert st.to_pixel(st.to_pose((120.9, 130.6))) == (120.9, 130.6)
