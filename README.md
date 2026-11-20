@@ -8,7 +8,7 @@ The X8 builds a SLAM map, but no existing Home Assistant integration shows it. T
 
 | Phase | What | State |
 |---|---|---|
-| 1 | Read-only probe: does the cloud map method work on the X8? | **Ready to run** (`tools/probe`) |
+| 1 | Read-only probe: does the cloud map method work on the X8? | **Map: yes** (T2262A, Tuya type-0 header). **Live position: not yet** (cloud pose frame static); probe 1b looks for a route file |
 | 2 | HACS integration: map camera, position sensors, room list | Planned |
 | 3 | Controls from the map (tap-to-go, rooms) | Stretch |
 | 4 | Fully local map (no Eufy cloud) via the robot's P2P channel | Research |

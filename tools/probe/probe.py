@@ -40,6 +40,7 @@ from x8probe.map_fetch import (
     fetch_frames, fetch_layout_bytes,
 )
 from x8probe.tuyawebapi import TuyaAPISession
+from x8probe.x8map import CANDIDATES, Storage, decode_any
 
 OUT = Path("x8probe-output")
 
@@ -95,8 +96,11 @@ def render(layout, route: list[list[tuple[float, float]]] | None = None, scale: 
     rgb = bytearray(w * h * 3)
     for y in range(layout.height):
         for x in range(layout.width):
-            room = layout.pixels[y * layout.width + x] >> 2
-            colour = PALETTE[room % len(PALETTE)] if room <= ROOM_ID_MAX else (60, 60, 60) if room == ROOM_ID_OBSTACLE else (245, 245, 245)
+            byte = layout.pixels[y * layout.width + x]
+            room = byte >> 2
+            colour = (PALETTE[room % len(PALETTE)] if room <= ROOM_ID_MAX
+                      else (40, 40, 40) if byte == 0xFD or room == ROOM_ID_OBSTACLE
+                      else (150, 150, 150) if byte == 0xFC else (245, 245, 245))
             for dy in range(scale):
                 base = ((y * scale + dy) * w + x * scale) * 3
                 rgb[base:base + scale * 3] = bytes(colour) * scale
@@ -116,8 +120,9 @@ def render(layout, route: list[list[tuple[float, float]]] | None = None, scale: 
                 steps = int(max(abs(px - ox), abs(py - oy)) * scale) or 1
                 for s in range(steps):
                     dot(ox + (px - ox) * s / steps, oy + (py - oy) * s / steps, (0, 0, 0), 0)
-    if layout.dock:
-        dot(layout.dock[0] / 10, layout.dock[1] / 10, (220, 0, 0), 4)
+    dock = getattr(layout, "dock", None) or (getattr(layout, "header", {}) or {}).get("dock")
+    if dock:
+        dot(dock[0] / 10, dock[1] / 10, (220, 0, 0), 4)
     return w, h, rgb
 
 
@@ -134,7 +139,7 @@ def main() -> None:
     if not vacs:
         sys.exit("No vacuums found on this account.")
 
-    summary: dict = {"probe": "x8-map-phase1", "devices": []}
+    summary: dict = {"probe": "x8-map-phase1b", "devices": []}
     for i, vac in enumerate(vacs):
         model = vac.get("product", {}).get("product_code", "?")
         print(f"[{i}] {vac.get('alias_name') or vac.get('name') or 'vacuum'}  model={model}  {short_id(vac['id'])}")
@@ -149,11 +154,12 @@ def main() -> None:
         (OUT / "lay.bin").write_bytes(raw)
         result["layout_bytes"] = len(raw)
         result["layout_magic"] = raw[:4].hex()
-        layout = decode_layout(raw)
-        rooms = layout.room_summary()
-        result.update(layout_ok=True, width=layout.width, height=layout.height, dock=layout.dock, rooms=rooms)
+        layout = decode_any(raw)
+        rooms = sorted({b >> 2 for b in layout.pixels if (b >> 2) <= ROOM_ID_MAX})
+        result.update(layout_ok=True, layout_format=layout.fmt, width=layout.width, height=layout.height,
+                      header=layout.header, rooms=rooms)
         write_png(OUT / "map.png", *render(layout))
-        print(f"MAP OK: {layout.width}x{layout.height}, {len(rooms)} rooms -> {OUT / 'map.png'}")
+        print(f"MAP OK ({layout.fmt}): {layout.width}x{layout.height}, {len(rooms)} rooms -> {OUT / 'map.png'}")
     except MapFetchError as err:
         layout = None
         result.update(layout_ok=False, layout_error=str(err))
@@ -163,15 +169,38 @@ def main() -> None:
         result.update(layout_ok=False, layout_error=type(err).__name__)
         print(f"MAP FAILED: {type(err).__name__}")
 
+    # 1b. Storage discovery (read-only): what files does the robot keep in the cloud?
+    storage = None
+    try:
+        storage = Storage(session, dev_id)
+        status, objects = storage.list()
+        result["storage"] = {"path_types": storage.path_keys, "list_status": status,
+                             "objects": [{**o, "key": storage.redact(o["key"] or "", dev_id, short_id(dev_id))} for o in objects]}
+        found = {}
+        for rel in CANDIDATES:
+            code, body = storage.fetch(f"{storage.root}/{rel}")
+            found[rel] = {"http": code, "bytes": len(body), "sha8": hashlib.sha256(body).hexdigest()[:8] if body else None}
+            if body:
+                (OUT / ("start-" + rel.replace("/", "_"))).write_bytes(body)
+        result["storage"]["candidates"] = found
+        print(f"STORAGE: list http {status}, {len(objects)} objects; found: " +
+              ", ".join(k for k, v in found.items() if v["bytes"]) )
+    except Exception as err:  # noqa: BLE001
+        result["storage_error"] = type(err).__name__
+        print(f"STORAGE FAILED: {type(err).__name__}")
+
     # 2. Live position
     if args.watch > 0:
-        print(f"Recording live position for {args.watch} min (poll every 1 s). Ctrl+C stops early.")
+        print(f"Recording for {args.watch} min: live position every 1 s, cloud map files every ~15 s. Ctrl+C stops early.")
         tracker = RouteTracker()
-        if layout and layout.dock:
-            tracker.set_layout_dock(layout.dock)
+        layout_dock = (layout.header or {}).get("dock") if layout else None
+        if layout_dock:
+            tracker.set_layout_dock(layout_dock)
         lengths: Counter = Counter()
         polls = errors = 0
         records: set[int] = set()
+        changes: dict[str, list[dict]] = {}
+        distinct: set[str] = set()
         end = time.time() + args.watch * 60
         with (OUT / "frames.jsonl").open("w") as log:
             try:
@@ -188,15 +217,28 @@ def main() -> None:
                         records.add(record_id)
                     for f in frames:
                         lengths[len(f) // 2] += 1
+                        distinct.add(f)
                     log.write(json.dumps({"t": round(time.time(), 2), "record": record_id, "frames": frames}) + "\n")
                     tracker.update(record_id, frames)
+                    if storage and polls % 15 == 1:
+                        for rel in CANDIDATES:
+                            code, body = storage.fetch(f"{storage.root}/{rel}")
+                            if not body:
+                                continue
+                            h = hashlib.sha256(body).hexdigest()[:8]
+                            seen = changes.setdefault(rel, [])
+                            if not seen or seen[-1]["sha8"] != h:
+                                seen.append({"t": round(time.time(), 1), "bytes": len(body), "sha8": h})
+                                (OUT / f"watch-{len(seen):03d}-{rel.replace('/', '_')}").write_bytes(body)
                     if polls % 30 == 0:
                         print(f"  {polls} polls, {tracker.point_count} route points")
                     time.sleep(1)
             except KeyboardInterrupt:
                 pass
         result["watch"] = {"polls": polls, "errors": errors, "clean_records": len(records),
-                           "route_points": tracker.point_count, "frame_lengths": dict(lengths)}
+                           "route_points": tracker.point_count, "frame_lengths": dict(lengths),
+                           "distinct_frames": len(distinct),
+                           "storage_changes": {k: v for k, v in changes.items()}}
         if layout:
             pieces = tracker.segments(layout.width, layout.height)
             on_map = sum(len(p) for p in pieces)
@@ -206,7 +248,7 @@ def main() -> None:
 
     summary["devices"].append(result)
     (OUT / "summary.json").write_text(json.dumps(summary, indent=2))
-    print(f"Done. Send back the files in {OUT}/ (map.png, route.png, summary.json, lay.bin, frames.jsonl).")
+    print(f"Done. Zip the whole {OUT}/ folder and send it to Claude.")
 
 
 if __name__ == "__main__":
