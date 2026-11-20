@@ -6,9 +6,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import CONF_ORIENTATION, CONF_ROOM_NAMES, DOMAIN
 from .coordinator import X8MapCoordinator
 from .entity import X8MapEntity
+from .lib.engine import parse_room_names
 from .lib.render import render_png
 
 
@@ -24,13 +25,15 @@ class X8MapCamera(X8MapEntity, Camera):
         X8MapEntity.__init__(self, coordinator, "map")
         Camera.__init__(self)
         self._png: bytes | None = None
-        self._png_version = -1
+        self._png_version: tuple = ()
 
     async def async_camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
         state = self.coordinator.state
-        if state.version != self._png_version:
-            self._png = await self.hass.async_add_executor_job(render_png, state)
-            self._png_version = state.version
+        orientation = self.coordinator.entry.options.get(CONF_ORIENTATION, "app")
+        key = (state.version, orientation)
+        if key != self._png_version:
+            self._png = await self.hass.async_add_executor_job(render_png, state, 3, None, orientation)
+            self._png_version = key
         return self._png
 
     @property
@@ -39,6 +42,7 @@ class X8MapCamera(X8MapEntity, Camera):
         lay = state.layout
         return {
             "rooms": state.rooms,
+            "room_names": {r: parse_room_names(self.coordinator.entry.options.get(CONF_ROOM_NAMES)).get(r, f"Room {r}") for r in state.rooms},
             "map_width": lay.width if lay else None,
             "map_height": lay.height if lay else None,
             "route_points": len(state.poses),

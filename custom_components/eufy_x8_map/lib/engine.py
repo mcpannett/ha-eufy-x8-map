@@ -241,3 +241,14 @@ class MapState:
         if current:
             pieces.append(current)
         return pieces
+
+
+def parse_room_names(text: str | None) -> dict[int, str]:
+    """'1=Living Room, 2=Hallway' -> {1: 'Living Room', 2: 'Hallway'}. Bad parts are ignored."""
+    names: dict[int, str] = {}
+    for part in (text or "").replace(";", ",").replace("\n", ",").split(","):
+        if "=" in part:
+            key, _, name = part.partition("=")
+            if key.strip().isdigit() and name.strip():
+                names[int(key.strip())] = name.strip()[:40]
+    return names

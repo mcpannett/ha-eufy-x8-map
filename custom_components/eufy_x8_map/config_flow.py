@@ -9,7 +9,10 @@ from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
-from .const import CONF_ACCOUNT, CONF_DEVICE_ID, CONF_DEVICE_NAME, CONF_MODEL, CONF_VACUUM_ENTITY, DOMAIN
+from .const import (
+    CONF_ACCOUNT, CONF_DEVICE_ID, CONF_DEVICE_NAME, CONF_MODEL, CONF_ORIENTATION, CONF_ROOM_NAMES,
+    CONF_VACUUM_ENTITY, DOMAIN,
+)
 from .lib.engine import Account, LoginError, account_login
 
 
@@ -64,9 +67,18 @@ class EufyX8MapConfigFlow(ConfigFlow, domain=DOMAIN):
 
 class EufyX8MapOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        opts = self.config_entry.options
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
-        current = self.config_entry.options.get(CONF_VACUUM_ENTITY)
-        key = vol.Optional(CONF_VACUUM_ENTITY, description={"suggested_value": current}) if current else vol.Optional(CONF_VACUUM_ENTITY)
-        schema = vol.Schema({key: selector.EntitySelector(selector.EntitySelectorConfig(domain="vacuum"))})
+            # Keep options this form doesn't show (e.g. the command recorder switch).
+            return self.async_create_entry(data={**opts, **user_input})
+        vac = opts.get(CONF_VACUUM_ENTITY)
+        schema = vol.Schema({
+            (vol.Optional(CONF_VACUUM_ENTITY, description={"suggested_value": vac}) if vac else vol.Optional(CONF_VACUUM_ENTITY)):
+                selector.EntitySelector(selector.EntitySelectorConfig(domain="vacuum")),
+            vol.Optional(CONF_ROOM_NAMES, default=opts.get(CONF_ROOM_NAMES, "")): str,
+            vol.Optional(CONF_ORIENTATION, default=opts.get(CONF_ORIENTATION, "app")): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=[
+                    selector.SelectOptionDict(value="app", label="Match the Eufy app"),
+                    selector.SelectOptionDict(value="stored", label="As stored by the robot")])),
+        })
         return self.async_show_form(step_id="init", data_schema=schema)

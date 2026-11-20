@@ -17,3 +17,5 @@ CONF_RECORD_COMMANDS = "record_commands"
 DPS_POLL_S = 60            # robot state + map version
 RECORD_DPS_POLL_S = 15     # while the command recorder is on
 RECORD_HISTORY_S = 300     # cloud DP history while the recorder is on
+CONF_ROOM_NAMES = "room_names"      # "1=Living Room, 2=Hallway"
+CONF_ORIENTATION = "orientation"    # "stored" | "app" (matches the Eufy app: transposed)

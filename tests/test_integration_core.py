@@ -129,3 +129,12 @@ def test_at_dock():
     assert st.at_dock(1.0)
     st.update_frames(5, [pose(-150, 50)], 2.0)
     assert not st.at_dock(3.0)                       # moving and away from dock
+
+
+def test_room_names_and_app_orientation():
+    from lib.engine import parse_room_names
+    assert parse_room_names("1=Living Room, 2=Hallway; x=bad, 3=") == {1: "Living Room", 2: "Hallway"}
+    st = MapState(); st.update_layout(layout(w=40, h=30), 0)
+    stored, app = render_png(st, scale=1), render_png(st, scale=1, orientation="app")
+    size = lambda png: (int.from_bytes(png[16:20], "big"), int.from_bytes(png[20:24], "big"))
+    assert size(stored) == (40, 30) and size(app) == (30, 40)

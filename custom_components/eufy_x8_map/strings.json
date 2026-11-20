@@ -30,9 +30,11 @@
     "step": {
       "init": {
         "title": "Map options",
-        "description": "Optional: pick your existing vacuum entity so the map switches to fast updates as soon as it starts cleaning.",
+        "description": "Room names: type them as number=name, comma separated, e.g. 1=Living Room, 2=Hallway. The numbers are in the map camera's room_names attribute. Vacuum entity (optional) switches the map to fast updates as soon as cleaning starts.",
         "data": {
-          "vacuum_entity": "Vacuum entity"
+          "vacuum_entity": "Vacuum entity",
+          "room_names": "Room names",
+          "orientation": "Map layout"
         }
       }
     }

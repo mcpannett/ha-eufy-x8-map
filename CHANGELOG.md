@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 (20 Nov 2026)
+
+- **Room names:** set them under Configure as `number=name` (e.g. `1=Living Room, 2=Hallway`). Used by the current-room sensor and listed in the camera's `room_names` attribute.
+- **Map layout:** new default "Match the Eufy app" (the app shows the map transposed). "As stored by the robot" keeps the old view.
+- Options form keeps the recorder setting when saved.
+
 ## 0.2.0 (20 Nov 2026)
 
 - **Map edits show up fast:** the integration reads the X8's map version (DPS 125) every minute and re-downloads the map as soon as it changes. New **Refresh map** button.

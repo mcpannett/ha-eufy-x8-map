@@ -25,7 +25,8 @@ def _png(width: int, height: int, rgba: bytearray) -> bytes:
             + chunk(b"IDAT", zlib.compress(rows, 6)) + chunk(b"IEND", b""))
 
 
-def render_png(state: MapState, scale: int = 3, room_colours: dict[int, tuple[int, int, int]] | None = None) -> bytes | None:
+def render_png(state: MapState, scale: int = 3, room_colours: dict[int, tuple[int, int, int]] | None = None,
+               orientation: str = "stored") -> bytes | None:
     """Return a PNG of the map with route, dock and robot, or None without a map."""
     lay = state.layout
     if lay is None:
@@ -68,4 +69,12 @@ def render_png(state: MapState, scale: int = 3, room_colours: dict[int, tuple[in
         dot(*state.dock, DOCK, 2 * scale)
     if state.robot:
         dot(*state.robot, ROBOT, 2 * scale)
+    if orientation == "app":  # the Eufy app shows the map transposed (x and y swapped)
+        out = bytearray(len(rgba))
+        for y in range(h):
+            row = rgba[y * w * 4:(y + 1) * w * 4]
+            for x in range(w):
+                j = (x * h + y) * 4
+                out[j:j + 4] = row[x * 4:x * 4 + 4]
+        return _png(h, w, out)
     return _png(w, h, rgba)
