@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1 (20 Nov 2026) — safety fixes after an incident
+
+**What happened:** during testing, a `goto` was sent in coordinates taken from the live-position data, which the X8 does not use for goto (the eufy-x8 project had warned about this). The robot left the dock, could not place itself, returned, and came back on a plain map: the room division (and names) was lost. The map shape survived.
+
+**Changes:**
+- `goto` is **disabled** (service and command list) until its coordinate system is verified from a capture of the Eufy app.
+- **Map guard:** commands are only sent once the map version is known; if the map version changes after a test command, **Allow commands switches itself off** and the event is logged in Recorded app commands.
+- Rule for future tests: no movement command whose format and coordinates are not taken from a real app capture.
+
 ## 0.3.0 (20 Nov 2026)
 
 - **Test-command layer** (for building room cleaning and tap-to-go), sent through Eufy's cloud so it never takes the robot's single local connection from your control integration:

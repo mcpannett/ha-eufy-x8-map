@@ -38,14 +38,14 @@ def test_map_version():
 def test_safe_list():
     import pytest
     from lib.commands import CommandRefused, check_method, encode_command
-    for ok in ["goto", "clear", "stop", "roomClean", "selectRoomsClean", "zoneClean", "spotClean"]:
+    for ok in ["clear", "stop", "roomClean", "selectRoomsClean", "zoneClean", "spotClean"]:
         assert check_method(ok) == ok
     for bad in ["divideRoom", "mergeRooms", "renameRoom", "resetMap", "deleteMap", "saveMap", "otaUpdate",
-                "factoryReset", "setWifi", "", "drop table", "cleanMap"]:
+                "factoryReset", "setWifi", "", "drop table", "cleanMap", "goto"]:
         with pytest.raises(CommandRefused):
             check_method(bad)
-    value = encode_command("goto", {"target": "go", "x": 1, "y": -2}, now_ms=5)
-    assert json.loads(base64.b64decode(value)) == {"method": "goto", "data": {"target": "go", "x": 1, "y": -2}, "timestamp": 5}
+    value = encode_command("roomClean", {"ids": [3]}, now_ms=5)
+    assert json.loads(base64.b64decode(value)) == {"method": "roomClean", "data": {"ids": [3]}, "timestamp": 5}
 
 
 def test_pixel_pose_round_trip():

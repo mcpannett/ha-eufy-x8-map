@@ -40,6 +40,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._last_dps = -1e9
         self._last_history = -1e9
         self._map_version = None
+        self._guard_version = None
 
     @property
     def commands_allowed(self) -> bool:
@@ -49,6 +50,9 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         """Send DPS through the cloud. Only when 'Allow commands' is on. Logged and recorded."""
         if not self.commands_allowed:
             raise PermissionError("Turn on 'Allow commands' on the map device first")
+        if self._map_version is None:
+            raise PermissionError("Map version unknown yet; wait a minute after start-up before sending commands")
+        self._guard_version = self._map_version
         await self.hass.async_add_executor_job(self.client.publish_dps, dps)
         _LOGGER.info("Sent to robot: %s", label)
         self.recorder.items.insert(0, {"dp": ",".join(dps), "time": dt_util.utcnow().isoformat(timespec="seconds"),
@@ -101,6 +105,15 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             _LOGGER.info("Map edited in the app; refreshing")
             self.force_map = True
             self._map_retry_at = 0.0
+        if version is not None and self._guard_version is not None and version != self._guard_version \
+                and self.commands_allowed:
+            # Safety: a test command was followed by a map change. Lock commands until a person turns them back on.
+            _LOGGER.warning("Map changed after a test command (%s -> %s): commands locked", self._guard_version, version)
+            self.hass.config_entries.async_update_entry(
+                self.entry, options={**self.entry.options, CONF_ALLOW_COMMANDS: False})
+            self.recorder.items.insert(0, {"dp": "125", "time": dt_util.utcnow().isoformat(timespec="seconds"),
+                                           "source": "guard", "label": f"map changed {self._guard_version} -> {version}; commands locked"})
+            self._guard_version = None
         if version is not None:
             self._map_version = version
         if self.recording:

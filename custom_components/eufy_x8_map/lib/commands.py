@@ -97,8 +97,9 @@ def map_version(dps: dict[str, Any]) -> Any:
 
 # --- sending (test-command layer) ---------------------------------------------
 # Never sent: anything that could change or lose the saved map, settings or firmware.
+# goto is off the list until its coordinates are verified (it cost the room map on 20 Nov 2026).
 BLOCKED = re.compile(r"divide|merge|rename|reset|delete|remove|erase|save|map|ota|firmware|factory|update|upgrade|wifi|config|set", re.I)
-ALLOWED = re.compile(r"^(goto|clear|stop|pause|resume|home|recharge|locate|[a-z]*clean[a-z]*|[a-z]*room[a-z]*|[a-z]*zone[a-z]*)$", re.I)
+ALLOWED = re.compile(r"^(clear|stop|pause|resume|home|recharge|locate|[a-z]*clean[a-z]*|[a-z]*room[a-z]*|[a-z]*zone[a-z]*)$", re.I)
 
 
 class CommandRefused(ValueError):

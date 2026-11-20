@@ -45,7 +45,10 @@ def async_register(hass: HomeAssistant) -> None:
         await _guard(_coordinator(hass).async_send({"101": True}, "return_home"))
 
     async def goto(call: ServiceCall) -> None:
-        coord = _coordinator(hass)
+        # Disabled after 20 Nov 2026: a goto in unverified coordinates made the X8 lose its room map.
+        # Stays off until the goto coordinate system is confirmed from a capture of the Eufy app.
+        raise ServiceValidationError("goto is disabled until its coordinate system is verified from an app capture")
+        coord = _coordinator(hass)  # noqa: F841 - kept for when goto is re-enabled
         if "x" in call.data:
             target = (int(call.data["x"]), int(call.data["y"]))
         else:
