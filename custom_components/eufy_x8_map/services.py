@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 import homeassistant.helpers.config_validation as cv
 
-from .const import DOMAIN, GOTO_CLEAR_WAIT_S
+from .const import DOCKED_STATUSES, DOMAIN, GOTO_CLEAR_WAIT_S
 from .coordinator import X8MapCoordinator
 from .lib.commands import CommandRefused
 
@@ -42,7 +42,10 @@ def async_register(hass: HomeAssistant) -> None:
         await _guard(_coordinator(hass).async_command(call.data["method"], call.data.get("data")))
 
     async def return_home(call: ServiceCall) -> None:
-        await _guard(_coordinator(hass).async_send({"101": True}, "return_home"))
+        coord = _coordinator(hass)
+        if coord.dps.get("15") in DOCKED_STATUSES:
+            raise ServiceValidationError("The robot is already docked")
+        await _guard(coord.async_send({"101": True}, "return_home"))
 
     async def goto(call: ServiceCall) -> None:
         # Disabled after 20 Nov 2026: a goto in unverified coordinates made the X8 lose its room map.

@@ -13,7 +13,7 @@ from homeassistant.util import dt as dt_util
 from .const import (
     ACTIVE_MAP_S, ACTIVE_POLL_S, ACTIVE_VACUUM_STATES, CONF_ACCOUNT, CONF_DEVICE_ID,
     CONF_ALLOW_COMMANDS, CONF_RECORD_COMMANDS, CONF_VACUUM_ENTITY, DOMAIN, DPS_POLL_S, IDLE_MAP_S, IDLE_POLL_S,
-    RECORD_DPS_POLL_S, RECORD_HISTORY_S,
+    RECORD_DPS_POLL_S, RECORD_HISTORY_S, RECORD_MAX_S,
 )
 from .lib.commands import CommandRecorder, encode_command, history_entries, map_version
 from .lib.engine import Account, MapState, X8Client
@@ -41,6 +41,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._last_history = -1e9
         self._map_version = None
         self._guard_version = None
+        self._record_started: float | None = None
 
     @property
     def commands_allowed(self) -> bool:
@@ -117,6 +118,14 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         if version is not None:
             self._map_version = version
         if self.recording:
+            if self._record_started is None:
+                self._record_started = now
+            elif now - self._record_started > RECORD_MAX_S:
+                _LOGGER.info("Command recorder switched off after %s h", RECORD_MAX_S // 3600)
+                self.hass.config_entries.async_update_entry(
+                    self.entry, options={**self.entry.options, CONF_RECORD_COMMANDS: False})
+                self._record_started = None
+                return
             stamp = dt_util.utcnow().isoformat(timespec="seconds")
             for dp in ("124", "125", "142"):
                 if dp in self.dps:

@@ -22,3 +22,4 @@ CONF_ORIENTATION = "orientation"    # "stored" | "app" (matches the Eufy app: tr
 DOCKED_STATUSES = {"Charging", "Sleeping"}
 CONF_ALLOW_COMMANDS = "allow_commands"  # test-command layer gate, off by default
 GOTO_CLEAR_WAIT_S = 35                  # the app sends "clear" ~35 s before "goto"
+RECORD_MAX_S = 6 * 3600       # recorder turns itself off after this

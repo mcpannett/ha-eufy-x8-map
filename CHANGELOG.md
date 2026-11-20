@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2 (20 Nov 2026)
+
+- **Icon:** original light and dark brand images in `brand/` (shown by Home Assistant 2026.3+).
+- `return_home` is refused while the robot is docked.
+- **Record app commands** turns itself off after 6 hours, so a forgotten recorder doesn't keep polling the cloud.
+- README: Marketplace wording and a dashboard card example.
+
 ## 0.3.1 (20 Nov 2026) — safety fixes after an incident
 
 **What happened:** during testing, a `goto` was sent in coordinates taken from the live-position data, which the X8 does not use for goto (the eufy-x8 project had warned about this). The robot left the dock, could not place itself, returned, and came back on a plain map: the room division (and names) was lost. The map shape survived.

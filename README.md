@@ -9,15 +9,15 @@ The X8 builds a SLAM map, but no existing Home Assistant integration shows it. T
 | Phase | What | State |
 |---|---|---|
 | 1 | Read-only probe: does the cloud map method work on the X8? | **Done.** Map and live position both work on the T2262A |
-| 2 | HACS integration: map camera, current room, route | **0.1.0, ready to test** |
-| 3 | Controls from the map (tap-to-go, rooms) | Stretch |
+| 2 | Integration: map camera, current room, route, room names, robot status | **Done (0.2.x)** |
+| 3 | Room cleaning and tap-to-go | **In progress:** waiting on an app capture for the exact command formats (goto disabled for safety) |
 | 4 | Fully local map (no Eufy cloud) via the robot's P2P channel | Research |
 
 Phase 1–2 fetch the map from Eufy's cloud (the room layout file `lay.bin` plus live position frames). Robot control stays local with your current integration. The long-term goal is to drop the cloud.
 
-## Install (HACS)
+## Install (Home Assistant Marketplace, formerly HACS)
 
-1. HACS → ⋮ → **Custom repositories** → add `https://github.com/mcpannett/ha-eufy-x8-map` as **Integration**.
+1. Marketplace → ⋮ → **Custom repositories** → add `https://github.com/mcpannett/ha-eufy-x8-map` as **Integration**.
 2. Install **Eufy X8 Map** and restart Home Assistant.
 3. Settings → Devices & services → **Add integration** → **Eufy X8 Map**, then log in with your Eufy account. The password is used once and **not stored**: only your Eufy account ID and region are kept.
 4. Optional: open the integration's **Configure** and pick your existing vacuum entity, so the map switches to fast updates the moment it starts cleaning.
@@ -30,6 +30,18 @@ Phase 1–2 fetch the map from Eufy's cloud (the room layout file `lay.bin` plus
 - Diagnostic: route points, map activity (`live` / `idle`), and **Record app commands** (switch) + **Recorded app commands** (sensor): turn the switch on, use the Eufy app (clean a room, go to a spot, draw a zone), and the decoded commands appear in the sensor's attributes. Read-only.
 
 **Cloud use:** about every 2 s while the robot moves (position) and every 20 s (map). While docked, once a minute (to spot a new clean) and the map hourly. Robot control stays with your existing integration.
+
+## Dashboard card
+
+```yaml
+type: picture-entity
+entity: camera.robovac_map_map
+camera_view: live
+show_name: false
+show_state: false
+```
+
+Add an entities card with `sensor.robovac_map_current_room` and `sensor.robovac_map_robot_status` under it.
 
 ## Phase 1 probe
 
