@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 (20 Nov 2026)
+
+- Current room shows **Docked** when the X8 reports Charging or Sleeping, including straight after an HA restart (it was "unknown" until the robot moved).
+
 ## 0.2.1 (20 Nov 2026)
 
 - **Room names:** set them under Configure as `number=name` (e.g. `1=Living Room, 2=Hallway`). Used by the current-room sensor and listed in the camera's `room_names` attribute.
