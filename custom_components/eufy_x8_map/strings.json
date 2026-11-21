@@ -126,6 +126,46 @@
           "description": "List of captured flows: to_robot, t and base64 data."
         }
       }
+    },
+    "clean_rooms": {
+      "name": "Clean rooms",
+      "description": "Clean the chosen rooms, as the Eufy app does. Needs 'Allow commands' on.",
+      "fields": {
+        "rooms": {
+          "name": "Rooms",
+          "description": "Room names (from the room names option) or room numbers."
+        },
+        "clean_times": {
+          "name": "Passes",
+          "description": "How many passes, 1 to 3."
+        }
+      }
+    },
+    "spot_clean": {
+      "name": "Spot clean",
+      "description": "Spot clean one point, as the Eufy app does. Give x/y in robot units or pixel_x/pixel_y on the stored map. The point must be inside a room. Needs 'Allow commands' on.",
+      "fields": {
+        "x": {
+          "name": "X",
+          "description": "Robot units (dock is 0)."
+        },
+        "y": {
+          "name": "Y",
+          "description": "Robot units (dock is 0)."
+        },
+        "pixel_x": {
+          "name": "Map pixel X",
+          "description": "Map pixel (stored layout)."
+        },
+        "pixel_y": {
+          "name": "Map pixel Y",
+          "description": "Map pixel (stored layout)."
+        },
+        "clean_times": {
+          "name": "Passes",
+          "description": "How many passes, 1 to 3."
+        }
+      }
     }
   }
 }

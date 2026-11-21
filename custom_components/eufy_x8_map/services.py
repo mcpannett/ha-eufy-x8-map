@@ -11,9 +11,10 @@ from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, Supp
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 import homeassistant.helpers.config_validation as cv
 
-from .const import DOCKED_STATUSES, DOMAIN, GOTO_CLEAR_WAIT_S
+from .const import CONF_ROOM_NAMES, DOCKED_STATUSES, DOMAIN, GOTO_CLEAR_WAIT_S
 from .coordinator import X8MapCoordinator
-from .lib.commands import CommandRefused
+from .lib.commands import CommandRefused, resolve_rooms, room_clean_dps, spot_clean_dps
+from .lib.engine import parse_room_names
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,6 +72,40 @@ def async_register(hass: HomeAssistant) -> None:
                 _LOGGER.warning("goto not sent: %s", type(err).__name__)
         hass.async_create_background_task(later(), "eufy_x8_map goto")
 
+    async def clean_rooms(call: ServiceCall) -> None:
+        coord = _coordinator(hass)
+        state = coord.state
+        if not state.layout:
+            raise ServiceValidationError("No map yet")
+        names = parse_room_names(coord.entry.options.get(CONF_ROOM_NAMES))
+        try:
+            ids = resolve_rooms(call.data["rooms"], names, state.rooms)
+            dps = room_clean_dps(ids, call.data.get("clean_times", 1))
+        except CommandRefused as err:
+            raise ServiceValidationError(str(err)) from None
+        label = "clean rooms " + ", ".join(names.get(i, f"Room {i}") for i in ids)
+        await _guard(coord.async_send(dps, label))
+
+    async def spot_clean(call: ServiceCall) -> None:
+        coord = _coordinator(hass)
+        state = coord.state
+        if not state.layout:
+            raise ServiceValidationError("No map yet")
+        if "x" in call.data:
+            pose = (int(call.data["x"]), int(call.data["y"]))
+            pixel = state.to_pixel(pose)
+        else:
+            pixel = (float(call.data["pixel_x"]), float(call.data["pixel_y"]))
+            pose = state.to_pose(pixel)
+        room = state.room_at(pixel)
+        if pose is None or room is None:
+            raise ServiceValidationError("That point is not inside a room on the current map")
+        try:
+            dps = spot_clean_dps(pose[0], pose[1], call.data.get("clean_times", 1))
+        except CommandRefused as err:
+            raise ServiceValidationError(str(err)) from None
+        await _guard(coord.async_send(dps, f"spot clean at {pose[0]},{pose[1]} (room {room})"))
+
     async def decode_capture(call: ServiceCall) -> ServiceResponse:
         """Read-only: decrypt captured Eufy-app traffic inside HA (the robot key never leaves HA)."""
         try:
@@ -89,6 +124,14 @@ def async_register(hass: HomeAssistant) -> None:
         vol.Required("flows"): list}), supports_response=SupportsResponse.ONLY)
     hass.services.async_register(DOMAIN, "command", command, schema=vol.Schema({
         vol.Required("method"): cv.string, vol.Optional("data"): vol.Any(dict, list, str, int, float, bool)}))
+    hass.services.async_register(DOMAIN, "clean_rooms", clean_rooms, schema=vol.Schema({
+        vol.Required("rooms"): vol.Any(cv.string, int, [vol.Any(cv.string, int)]),
+        vol.Optional("clean_times", default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=3))}))
+    hass.services.async_register(DOMAIN, "spot_clean", spot_clean, schema=vol.All(vol.Schema({
+        vol.Inclusive("x", "robot"): vol.Coerce(int), vol.Inclusive("y", "robot"): vol.Coerce(int),
+        vol.Inclusive("pixel_x", "pixel"): vol.Coerce(float), vol.Inclusive("pixel_y", "pixel"): vol.Coerce(float),
+        vol.Optional("clean_times", default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=3))}),
+        cv.has_at_least_one_key("x", "pixel_x")))
     hass.services.async_register(DOMAIN, "return_home", return_home, schema=vol.Schema({}))
     hass.services.async_register(DOMAIN, "goto", goto, schema=vol.All(vol.Schema({
         vol.Inclusive("x", "robot"): vol.Coerce(int), vol.Inclusive("y", "robot"): vol.Coerce(int),

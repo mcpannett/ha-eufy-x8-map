@@ -55,3 +55,35 @@ def test_pixel_pose_round_trip():
     st = MapState(); st.update_layout(layout(origin=(-2320, -770)), 0)
     assert st.to_pose((232.0, 77.0)) == (0, 0)
     assert st.to_pixel(st.to_pose((120.9, 130.6))) == (120.9, 130.6)
+
+
+def test_room_clean_matches_app_capture():
+    from lib.commands import room_clean_dps, resolve_rooms
+    names = {1: "Porch", 2: "Hallway", 4: "Living Room", 6: "Bathroom", 7: "Kitchen"}
+    ids = resolve_rooms(["bathroom"], names, [1, 2, 4, 6, 7])
+    assert ids == [6]
+    dps = room_clean_dps(ids, 2, now_ms=1795257542233)
+    assert json.loads(base64.b64decode(dps["124"])) == {
+        "method": "selectRoomsClean", "data": {"roomIds": [6], "cleanTimes": 2}, "timestamp": 1795257542233}
+    assert resolve_rooms([6, "Kitchen", "6"], names, [1, 2, 4, 6, 7]) == [6, 7]
+
+
+def test_room_clean_refuses_unknown_or_bad():
+    import pytest
+    from lib.commands import CommandRefused, resolve_rooms, room_clean_dps
+    for bad in (["Garage"], [3], [], "99"):
+        with pytest.raises(CommandRefused):
+            resolve_rooms(bad, {6: "Bathroom"}, [6])
+    for times in (0, 4):
+        with pytest.raises(CommandRefused):
+            room_clean_dps([6], times)
+
+
+def test_spot_clean_matches_app_capture():
+    from lib.commands import check_method, spot_clean_dps
+    dps = spot_clean_dps(-831, 274, 1, now_ms=5)
+    assert json.loads(base64.b64decode(dps["124"])) == {
+        "method": "goto", "data": {"target": "spot", "cleanTimes": 1, "x": -831, "y": 274}, "timestamp": 5}
+    import pytest
+    with pytest.raises(Exception):
+        check_method("goto")  # plain goto stays blocked
