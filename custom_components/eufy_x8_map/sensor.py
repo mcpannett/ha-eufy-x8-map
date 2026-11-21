@@ -5,7 +5,7 @@ import time
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, EntityCategory
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfArea, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -20,7 +20,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     async_add_entities([CurrentRoomSensor(coordinator), RoutePointsSensor(coordinator), MapActivitySensor(coordinator),
                         RobotStatusSensor(coordinator), RecordedCommandsSensor(coordinator),
                         BatterySensor(coordinator), SuctionSensor(coordinator), CleanModeSensor(coordinator),
-                        LocalLinkSensor(coordinator)])
+                        LocalLinkSensor(coordinator), CleanTimeSensor(coordinator), CleanAreaSensor(coordinator),
+                        RunCodeSensor(coordinator)])
 
 
 class CurrentRoomSensor(X8MapEntity, SensorEntity):
@@ -99,7 +100,7 @@ class RecordedCommandsSensor(X8MapEntity, SensorEntity):
                 "commands": self.coordinator.recorder.items[:25]}
 
 
-KNOWN_LOCAL_DPS = {"5", "15", "101", "102", "104", "122", "124"}
+KNOWN_LOCAL_DPS = {"5", "15", "101", "102", "104", "109", "110", "122", "124", "137"}
 
 
 class _LocalValue(X8MapEntity, SensorEntity):
@@ -158,3 +159,51 @@ class LocalLinkSensor(X8MapEntity, SensorEntity):
         seen = None if not link or link.last_seen is None else round(time.monotonic() - link.last_seen)
         return {"host": coord.local_host, "seconds_since_data": seen, "last_send_route": coord.last_route,
                 "other_dps": {k: v for k, v in sorted(coord.local_dps.items()) if k not in KNOWN_LOCAL_DPS}}
+
+
+class _Number(_LocalValue):
+    @property
+    def native_value(self):
+        value = self.coordinator.dp(self._dp)
+        return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+class CleanTimeSensor(_Number):
+    """Duration of the current/last clean (DPS 109)."""
+
+    _dp = "109"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.SECONDS
+    _attr_suggested_unit_of_measurement = UnitOfTime.MINUTES
+
+    def __init__(self, coordinator: X8MapCoordinator) -> None:
+        super().__init__(coordinator, "clean_time")
+
+
+class CleanAreaSensor(_Number):
+    """Area cleaned in the current/last clean (DPS 110)."""
+
+    _dp = "110"
+    _attr_device_class = SensorDeviceClass.AREA
+    _attr_native_unit_of_measurement = UnitOfArea.SQUARE_METERS
+
+    def __init__(self, coordinator: X8MapCoordinator) -> None:
+        super().__init__(coordinator, "clean_area")
+
+
+class RunCodeSensor(_Number):
+    """Raw reason/error code (DPS 137); 24 was seen when a room's door was shut. 0 = fine."""
+
+    _dp = "137"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: X8MapCoordinator) -> None:
+        super().__init__(coordinator, "run_code")
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        value = self.native_value
+        return {"meaning": RUN_CODES.get(value, "unknown") if value is not None else None}
+
+
+RUN_CODES = {0: "ok", 24: "room unreachable (seen with a closed door)"}

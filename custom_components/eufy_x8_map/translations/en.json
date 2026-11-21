@@ -73,6 +73,15 @@
       },
       "local_link_status": {
         "name": "Local link status"
+      },
+      "clean_time": {
+        "name": "Clean time"
+      },
+      "clean_area": {
+        "name": "Clean area"
+      },
+      "run_code": {
+        "name": "Run code"
       }
     },
     "button": {

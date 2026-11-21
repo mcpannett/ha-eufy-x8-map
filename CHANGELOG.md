@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1 (21 Nov 2026)
+- New local sensors: Clean time (DPS 109), Clean area (DPS 110), Run code (DPS 137, diagnostic; 24 = room unreachable, seen with a closed door).
+- Tested on the robot over the LAN: Hallway room clean, Hallway spot clean, Hallway + Kitchen multi-room. Map unchanged after each.
+
 ## 0.6.0 (21 Nov 2026) - milestone 2, part 1: local link
 - New **Local link** switch (off by default): a LAN connection to the robot (Tuya 3.3, port 6668). The robot is found by UDP discovery, or set its IP in options. The key is fetched into memory only.
 - Commands go over the LAN when the link is up, with the cloud as fallback. Each send records its route.
