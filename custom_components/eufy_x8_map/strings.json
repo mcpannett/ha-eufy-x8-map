@@ -312,7 +312,7 @@
       "fields": {
         "notify_service": {
           "name": "Notify action",
-          "description": "e.g. notify.mobile_app_<your phone>."
+          "description": "e.g. notify.mobile_app_yourphone."
         },
         "test": {
           "name": "Send a test",

@@ -63,7 +63,7 @@ def async_register(hass: HomeAssistant) -> None:
         await _guard(_coordinator(hass).async_command(call.data["method"], call.data.get("data")))
 
     async def set_alerts(call: ServiceCall) -> None:
-        """Where phone alerts go (e.g. notify.mobile_app_<phone>). Empty = HA notifications only."""
+        """Where phone alerts go (e.g. notify.mobile_app_yourphone). Empty = HA notifications only."""
         from .const import CONF_NOTIFY
         target = (call.data.get("notify_service") or "").strip()
         if target and not (target.startswith("notify.") and hass.services.has_service("notify", target[7:])):
