@@ -19,7 +19,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     names = parse_room_names(entry.options.get(CONF_ROOM_NAMES))
     entities: list[ButtonEntity] = [RefreshMapButton(coordinator)]
     entities += [CleanRoomButton(coordinator, room, names.get(room, f"Room {room}")) for room in coordinator.state.rooms]
-    entities += [CleanSelectedButton(coordinator), CleanAllButton(coordinator)]
+    entities += [CleanSelectedButton(coordinator), CleanAllButton(coordinator), CleanDueButton(coordinator)]
     async_add_entities(entities)
 
 
@@ -61,10 +61,25 @@ async def _clean(coordinator: X8MapCoordinator, rooms: list[int]) -> None:
         raise ServiceValidationError("No rooms selected - tick at least one room first")
     try:
         await coordinator.async_clean_rooms(sorted(rooms))
-    except PermissionError as err:
+    except (PermissionError, ValueError) as err:
         raise ServiceValidationError(str(err)) from None
     except Exception as err:  # noqa: BLE001
         raise HomeAssistantError(f"Send failed ({type(err).__name__})") from None
+
+
+class CleanDueButton(X8MapEntity, ButtonEntity):
+    """Top-up: clean only the rooms not cleaned for the top-up period (two passes)."""
+
+    _attr_icon = "mdi:calendar-refresh"
+
+    def __init__(self, coordinator: X8MapCoordinator) -> None:
+        super().__init__(coordinator, "clean_due")
+
+    async def async_press(self) -> None:
+        due = self.coordinator.rooms_due()
+        if not due:
+            raise ServiceValidationError("Nothing due: every room was cleaned recently")
+        await _clean(self.coordinator, due)
 
 
 class CleanSelectedButton(X8MapEntity, ButtonEntity):

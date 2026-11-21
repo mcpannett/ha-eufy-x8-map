@@ -51,6 +51,23 @@ class X8Vacuum(X8MapEntity, StateVacuumEntity):
         super().__init__(coordinator, "vacuum")
         self._attr_translation_key = None
         self._attr_name = None  # use the device name
+        self._segments_flagged = False
+
+    def _handle_coordinator_update(self) -> None:
+        self._check_segments()
+        super()._handle_coordinator_update()
+
+    def _check_segments(self) -> None:
+        """If rooms were added/removed in the app since the area mapping was saved, ask HA to flag a repair."""
+        seen = getattr(self, "last_seen_segments", None)
+        create = getattr(self, "async_create_segments_issue", None)
+        if self._segments_flagged or seen is None or create is None or not self.coordinator.state.rooms:
+            return
+        if {str(getattr(seg, "id", seg)) for seg in seen} != {str(r) for r in self.coordinator.state.rooms}:
+            self._segments_flagged = True
+            result = create()
+            if hasattr(result, "__await__"):
+                self.hass.async_create_task(result)
 
     @property
     def activity(self) -> VacuumActivity | None:

@@ -10,6 +10,16 @@ command:
       example: '{"target": "go", "x": 0, "y": 0}'
       selector:
         object:
+set_alerts:
+  fields:
+    notify_service:
+      example: 'notify.mobile_app_matts_s25_ultra'
+      selector:
+        text:
+    test:
+      default: true
+      selector:
+        boolean:
 rename_room:
   fields:
     room:

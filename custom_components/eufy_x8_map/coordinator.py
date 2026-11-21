@@ -60,6 +60,10 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self.selected_rooms: set[int] = set()  # rooms ticked on the card for "Clean selected"
         self.tracker = RunTracker()
         self.last_run: dict = {}
+        self.run_log: list[dict] = []          # finished cleans, newest last (lib.care)
+        self._care_alerted: list[str] = []     # consumables already flagged as worn
+        self._last_run_code = None
+        self._last_care_poll = -1e9
         self._history_store: Store = Store(hass, 1, f"{DOMAIN}.{entry.data[CONF_DEVICE_ID]}.history")
         # Offline copy of the room layout (not secret: floor plan only).
         self._store: Store = Store(hass, 1, f"{DOMAIN}.{entry.data[CONF_DEVICE_ID]}.layout")
@@ -71,11 +75,71 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         data = await self._history_store.async_load() or {}
         self.tracker.last_cleaned = {int(k): v for k, v in (data.get("last_cleaned") or {}).items()}
         self.last_run = data.get("last_run") or {}
+        self.run_log = list(data.get("runs") or [])
+        self._care_alerted = list(data.get("care_alerted") or [])
+
+    def _save_history(self) -> None:
+        self._history_store.async_delay_save(lambda: {
+            "last_cleaned": {str(k): v for k, v in self.tracker.last_cleaned.items()}, "last_run": self.last_run,
+            "runs": self.run_log, "care_alerted": self._care_alerted}, 5)
+
+    @property
+    def topup_days(self) -> int:
+        from .const import CONF_TOPUP_DAYS, DEFAULT_TOPUP_DAYS
+        return int(self.entry.options.get(CONF_TOPUP_DAYS, DEFAULT_TOPUP_DAYS))
+
+    def rooms_due(self) -> list[int]:
+        from .lib.care import rooms_due
+        return rooms_due(self.state.rooms, self.tracker.last_cleaned, self.topup_days, dt_util.utcnow().timestamp())
+
+    def room_names(self) -> dict[int, str]:
+        from .const import CONF_ROOM_NAMES
+        from .lib.engine import parse_room_names
+        return parse_room_names(self.entry.options.get(CONF_ROOM_NAMES))
+
+    def alert(self, message: str, title: str = "Eufy X8 needs attention", key: str = "error", snapshot: bool = True) -> None:
+        """HA notification, plus a phone push (with the live map) when a notify service is set."""
+        from homeassistant.components import persistent_notification
+        from homeassistant.helpers import entity_registry as er
+        from .const import CONF_NOTIFY
+        persistent_notification.async_create(self.hass, message, title=title, notification_id=f"{DOMAIN}_{key}")
+        target = (self.entry.options.get(CONF_NOTIFY) or "").strip()
+        if not target.startswith("notify.") or not self.hass.services.has_service("notify", target[7:]):
+            return
+        data: dict = {"tag": f"{DOMAIN}_{key}", "group": "eufy_x8"}
+        camera = er.async_get(self.hass).async_get_entity_id("camera", DOMAIN, f"{self.entry.data[CONF_DEVICE_ID]}_map")
+        if snapshot and camera:
+            data["image"] = f"/api/camera_proxy/{camera}"
+            data["entity_id"] = camera
+        self.hass.async_create_task(self.hass.services.async_call(
+            "notify", target[7:], {"title": title, "message": message, "data": data}, blocking=False))
+
+    def _check_care(self) -> None:
+        """Run-code nudges (door closed) and worn-part reminders. Each fires once per occurrence."""
+        from .lib.care import REPLACE_AT_PERCENT, consumables
+        code = self.dp("137")
+        if code != self._last_run_code:
+            if code in (24, "24") and self._last_run_code is not None and self.tracker.running:
+                where = self.state.room_at(self.state.robot) if not self.state.docked else None
+                near = f" (near {self.room_names().get(where, f'Room {where}')})" if where else ""
+                self.alert(f"The X8 can't reach a room{near}. Is a door closed?", key="unreachable")
+            self._last_run_code = code
+        parts = consumables(self.dp("116"))
+        worn = sorted(k for k, v in parts.items() if v["percent"] <= REPLACE_AT_PERCENT)
+        new = [k for k in worn if k not in self._care_alerted]
+        if new:
+            label = ", ".join(k.replace("_", " ") for k in new)
+            self.alert(f"Time to replace: {label} (10% or less left).", title="Eufy X8 maintenance", key="care",
+                       snapshot=False)
+        if set(worn) != set(self._care_alerted):
+            self._care_alerted = worn   # a part that's been replaced (back above 10%) can alert again later
+            self._save_history()
 
     def _track(self) -> None:
         """Run tracking: room history, HA events (eufy_x8_map_event) and stuck/error alerts."""
         state = self.state
         room = None if state.docked else state.room_at(state.robot)
+        self._check_care()
         events = self.tracker.update(self.dp("15"), room, self.dp("106"), time.monotonic(), dt_util.utcnow().timestamp())
         if not events:
             return
@@ -89,20 +153,23 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             if "room" in data:
                 data["room_name"] = names.get(data["room"], f"Room {data['room']}")
             if event["type"] == "clean_finished":
+                from .lib.care import add_run
                 data["room_names"] = [names.get(r, f"Room {r}") for r in event["rooms"]]
                 data["area_m2"] = self.dp("110")
                 self.last_run = {**data, "finished": dt_util.utcnow().isoformat(timespec="seconds")}
+                if event["rooms"]:  # a run that never got into a room isn't a clean
+                    now_ts = dt_util.utcnow().timestamp()
+                    self.run_log = add_run(self.run_log, {**data, "ts": now_ts}, now_ts)
                 persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_error")
             if event["type"] in ("room_cleaned", "clean_finished"):
                 save = True
             if event["type"] == "error":
-                persistent_notification.async_create(
-                    self.hass, f"The X8 reported a problem (code {event['code']}). It may be stuck or need help.",
-                    title="Eufy X8 needs attention", notification_id=f"{DOMAIN}_error")
+                where = None if self.state.docked else self.state.room_at(self.state.robot)
+                near = f" in {names.get(where, f'Room {where}')}" if where else ""
+                self.alert(f"The X8 reported a problem{near} (code {event['code']}). It may be stuck or need help.")
             self.hass.bus.async_fire(f"{DOMAIN}_event", data)
         if save:
-            self._history_store.async_delay_save(lambda: {
-                "last_cleaned": {str(k): v for k, v in self.tracker.last_cleaned.items()}, "last_run": self.last_run}, 5)
+            self._save_history()
 
     async def async_load_cache(self) -> None:
         """Load the saved layout so the map works even if the cloud is down at start-up."""
@@ -304,10 +371,8 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self.selected_rooms.clear()  # picks are for one clean
         self.async_update_listeners()
         if skipped:
-            from homeassistant.components import persistent_notification
-            persistent_notification.async_create(
-                self.hass, f"Skipped {skipped_names}: the door is closed. The other rooms are being cleaned.",
-                title="Eufy X8", notification_id=f"{DOMAIN}_skipped")
+            self.alert(f"Skipped {skipped_names}: the door is closed. The other rooms are being cleaned.",
+                       title="Eufy X8", key="skipped", snapshot=False)
 
     def door_sensors(self) -> dict[int, str]:
         from .const import CONF_DOOR_SENSORS
@@ -349,6 +414,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             self.cloud_error = None
             self.state.update_frames(record, frames, now)
         await self._poll_dps(now)
+        await self._poll_consumables(now)
         active = self.state.is_active(now) or self._vacuum_active() or self.dp("15") in ("Running", "Recharge", "Locating")
         map_age = None if self.state.layout_time is None else now - self.state.layout_time
         due = map_age is None or map_age >= (ACTIVE_MAP_S if active else IDLE_MAP_S)
@@ -360,6 +426,16 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         await self._keep_position_streaming(now)
         self.update_interval = timedelta(seconds=ACTIVE_POLL_S if active else IDLE_POLL_S)
         return self.state
+
+    async def _poll_consumables(self, now: float) -> None:
+        """Ask the robot to re-report part wear (DPS 116) every 30 min. Read-only (Tuya UPDATEDPS)."""
+        if not self.local_up or now - self._last_care_poll < 1800:
+            return
+        self._last_care_poll = now
+        try:
+            await self._link.request_update([116])
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Consumables request failed (%s)", type(err).__name__)
 
     async def _poll_dps(self, now: float) -> None:
         """Robot state + map version (and, when recording, app commands). Never fatal."""

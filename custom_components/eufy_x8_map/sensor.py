@@ -21,7 +21,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                         RobotStatusSensor(coordinator), RecordedCommandsSensor(coordinator),
                         BatterySensor(coordinator), SuctionSensor(coordinator), CleanModeSensor(coordinator),
                         LocalLinkSensor(coordinator), CleanTimeSensor(coordinator), CleanAreaSensor(coordinator),
-                        RunCodeSensor(coordinator)]
+                        RunCodeSensor(coordinator), RoomsDueSensor(coordinator), CleansThisWeekSensor(coordinator)]
+                       + [ConsumableSensor(coordinator, key) for key in ("side_brush", "rolling_brush", "filter", "sensors")]
                        + [RoomLastCleanedSensor(coordinator, r, parse_room_names(entry.options.get(CONF_ROOM_NAMES)).get(r, f"Room {r}"))
                           for r in coordinator.state.rooms])
 
@@ -228,3 +229,83 @@ class RoomLastCleanedSensor(X8MapEntity, SensorEntity):
         from datetime import datetime, timezone
         ts = self.coordinator.tracker.last_cleaned.get(self._room)
         return datetime.fromtimestamp(ts, timezone.utc) if ts else None
+
+
+class ConsumableSensor(X8MapEntity, SensorEntity):
+    """% life left on a part, as the Eufy app shows it (hours from DPS 116; lifespans from the app)."""
+
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    ICONS = {"side_brush": "mdi:fan", "rolling_brush": "mdi:broom", "filter": "mdi:air-filter", "sensors": "mdi:eye-outline"}
+
+    def __init__(self, coordinator: X8MapCoordinator, key: str) -> None:
+        super().__init__(coordinator, f"part_{key}")
+        self._key = key
+        self._attr_icon = self.ICONS.get(key)
+
+    def _part(self) -> dict | None:
+        from .lib.care import consumables
+        return consumables(self.coordinator.dp("116")).get(self._key)
+
+    @property
+    def native_value(self):
+        part = self._part()
+        return part["percent"] if part else None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        part = self._part() or {}
+        return {"hours_left": part.get("left_h"), "hours_used": part.get("used_h"), "lifespan_hours": part.get("life_h")}
+
+
+class RoomsDueSensor(X8MapEntity, SensorEntity):
+    """How many rooms haven't been cleaned for the top-up period (never cleaned counts)."""
+
+    _attr_icon = "mdi:calendar-alert"
+    _attr_native_unit_of_measurement = "rooms"
+
+    def __init__(self, coordinator: X8MapCoordinator) -> None:
+        super().__init__(coordinator, "rooms_due")
+
+    @property
+    def native_value(self) -> int:
+        return len(self.coordinator.rooms_due())
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        names = self.coordinator.room_names()
+        due = self.coordinator.rooms_due()
+        return {"rooms": [names.get(r, f"Room {r}") for r in due], "room_ids": due,
+                "after_days": self.coordinator.topup_days}
+
+
+class CleansThisWeekSensor(X8MapEntity, SensorEntity):
+    """Cleans in the last 7 days, with minutes, area, per-room counts and the recent runs."""
+
+    _attr_icon = "mdi:chart-timeline-variant"
+    _attr_native_unit_of_measurement = "cleans"
+
+    def __init__(self, coordinator: X8MapCoordinator) -> None:
+        super().__init__(coordinator, "cleans_week")
+
+    @property
+    def native_value(self) -> int:
+        from .lib.care import summary
+        return summary(self.coordinator.run_log, time.time())["cleans"]
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        from datetime import datetime, timezone
+        from .lib.care import summary
+        names = self.coordinator.room_names()
+        s = summary(self.coordinator.run_log, time.time())
+        recent = []
+        for run in reversed(self.coordinator.run_log[-10:]):
+            recent.append({"when": datetime.fromtimestamp(run["ts"], timezone.utc).isoformat(timespec="minutes"),
+                           "rooms": [names.get(r, f"Room {r}") for r in run["rooms"]],
+                           "minutes": round(run["duration_s"] / 60), "area_m2": run.get("area_m2")})
+        return {"minutes": s["minutes"], "area_m2": s["area_m2"],
+                "per_room": {names.get(r, f"Room {r}"): n for r, n in sorted(s["per_room"].items())},
+                "recent": recent}

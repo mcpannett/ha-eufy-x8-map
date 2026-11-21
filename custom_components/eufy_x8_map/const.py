@@ -33,3 +33,6 @@ CONF_DOOR_SENSORS = "door_sensors"      # {"6": "binary_sensor.bathroom_door"}: 
 CONF_MAP_SIZE = "map_size"  # "full" | "compact" (4:3) | "square": pads a tall map so cards show it smaller
 MAP_SIZES = {"full": 0.0, "compact": 4 / 3, "square": 1.0}
 MAP_REQUEST_S = 30  # while cleaning, ask the robot to stream its live position (the app does this ~every 60 s)
+CONF_TOPUP_DAYS = "topup_days"   # a room is "due" when it hasn't been cleaned for this many days
+DEFAULT_TOPUP_DAYS = 7
+CONF_NOTIFY = "notify_service"   # e.g. "notify.mobile_app_matts_s25_ultra": phone alerts (with map snapshot)

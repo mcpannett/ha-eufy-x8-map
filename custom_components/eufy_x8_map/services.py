@@ -62,6 +62,17 @@ def async_register(hass: HomeAssistant) -> None:
     async def command(call: ServiceCall) -> None:
         await _guard(_coordinator(hass).async_command(call.data["method"], call.data.get("data")))
 
+    async def set_alerts(call: ServiceCall) -> None:
+        """Where phone alerts go (e.g. notify.mobile_app_<phone>). Empty = HA notifications only."""
+        from .const import CONF_NOTIFY
+        target = (call.data.get("notify_service") or "").strip()
+        if target and not (target.startswith("notify.") and hass.services.has_service("notify", target[7:])):
+            raise ServiceValidationError(f"{target} isn't a notify action in this Home Assistant")
+        coord = _coordinator(hass)
+        hass.config_entries.async_update_entry(coord.entry, options={**coord.entry.options, CONF_NOTIFY: target})
+        if target and call.data.get("test"):
+            coord.alert("Test: Eufy X8 alerts will arrive here, with the live map.", title="Eufy X8", key="test")
+
     async def rename_room(call: ServiceCall) -> None:
         """HA-only room name (no robot command). Accepts the room number or its current name."""
         from .text import apply_rename
@@ -294,6 +305,8 @@ def async_register(hass: HomeAssistant) -> None:
         vol.Inclusive("pixel_x", "pixel"): vol.Coerce(float), vol.Inclusive("pixel_y", "pixel"): vol.Coerce(float),
         vol.Optional("clean_times", default=DEFAULT_CLEAN_TIMES): vol.All(vol.Coerce(int), vol.Range(min=1, max=3))}),
         cv.has_at_least_one_key("x", "pixel_x")))
+    hass.services.async_register(DOMAIN, "set_alerts", set_alerts, schema=vol.Schema({
+        vol.Optional("notify_service", default=""): cv.string, vol.Optional("test", default=True): cv.boolean}))
     hass.services.async_register(DOMAIN, "rename_room", rename_room, schema=vol.Schema({
         vol.Required("room"): vol.Any(cv.string, int), vol.Required("name"): cv.string}))
     hass.services.async_register(DOMAIN, "return_home", return_home, schema=vol.Schema({}))

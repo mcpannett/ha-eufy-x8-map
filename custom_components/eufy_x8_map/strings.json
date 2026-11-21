@@ -82,6 +82,24 @@
       },
       "run_code": {
         "name": "Run code"
+      },
+      "part_side_brush": {
+        "name": "Side brush"
+      },
+      "part_rolling_brush": {
+        "name": "Rolling brush"
+      },
+      "part_filter": {
+        "name": "Filter"
+      },
+      "part_sensors": {
+        "name": "Sensors"
+      },
+      "rooms_due": {
+        "name": "Rooms due"
+      },
+      "cleans_week": {
+        "name": "Cleans this week"
       }
     },
     "button": {
@@ -93,6 +111,9 @@
       },
       "clean_all": {
         "name": "Clean all rooms"
+      },
+      "clean_due": {
+        "name": "Clean due rooms"
       }
     },
     "switch": {
@@ -126,6 +147,11 @@
           "compact": "Compact (4:3)",
           "square": "Square"
         }
+      }
+    },
+    "number": {
+      "topup_days": {
+        "name": "Top-up after"
       }
     }
   },
@@ -277,6 +303,20 @@
         "name": {
           "name": "New name",
           "description": "Up to 40 characters."
+        }
+      }
+    },
+    "set_alerts": {
+      "name": "Set phone alerts",
+      "description": "Send stuck/error, door-closed and worn-part alerts to a phone (with the live map). Leave empty for HA notifications only.",
+      "fields": {
+        "notify_service": {
+          "name": "Notify action",
+          "description": "e.g. notify.mobile_app_<your phone>."
+        },
+        "test": {
+          "name": "Send a test",
+          "description": "Send a test alert straight away."
         }
       }
     }
