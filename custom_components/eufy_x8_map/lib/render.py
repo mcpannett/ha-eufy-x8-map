@@ -25,6 +25,24 @@ def _png(width: int, height: int, rgba: bytearray) -> bytes:
             + chunk(b"IDAT", zlib.compress(rows, 6)) + chunk(b"IEND", b""))
 
 
+def pad_left(w: int, h: int, min_aspect: float) -> int:
+    """Columns added on each side to reach min_aspect (0 = none)."""
+    if min_aspect <= 0 or w >= h * min_aspect:
+        return 0
+    return int(round(h * min_aspect - w)) // 2
+
+
+def _finish(w: int, h: int, rgba: bytearray, min_aspect: float) -> bytes:
+    pad = pad_left(w, h, min_aspect)
+    if not pad:
+        return _png(w, h, rgba)
+    nw = w + 2 * pad
+    out = bytearray(nw * h * 4)
+    for y in range(h):
+        out[(y * nw + pad) * 4:(y * nw + pad + w) * 4] = rgba[y * w * 4:(y + 1) * w * 4]
+    return _png(nw, h, out)
+
+
 def content_box(state: MapState, margin: int = 6) -> tuple[int, int, int, int] | None:
     """(x0, y0, x1, y1) in layout pixels around rooms, walls, dock, robot and route; x1/y1 exclusive."""
     lay = state.layout
@@ -50,8 +68,10 @@ def content_box(state: MapState, margin: int = 6) -> tuple[int, int, int, int] |
 
 
 def render_png(state: MapState, scale: int = 3, room_colours: dict[int, tuple[int, int, int]] | None = None,
-               orientation: str = "stored", crop: bool = True) -> bytes | None:
-    """Return a PNG of the map with route, dock and robot, or None without a map."""
+               orientation: str = "stored", crop: bool = True, min_aspect: float = 0.0) -> bytes | None:
+    """Return a PNG of the map with route, dock and robot, or None without a map.
+
+    min_aspect (width / height): pad the sides with transparency so a tall map is shown smaller on cards."""
     lay = state.layout
     if lay is None:
         return None
@@ -110,7 +130,7 @@ def render_png(state: MapState, scale: int = 3, room_colours: dict[int, tuple[in
             for x in range(w):
                 j = (x * h + y) * 4
                 out[j:j + 4] = row[x * 4:x * 4 + 4]
-        return _png(h, w, out)
+        return _finish(h, w, out, min_aspect)
     if orientation in ("landscape_right", "landscape_left"):
         # The app's view turned on its side (wide, fits a phone better). On the stored grid that is a flip.
         out = bytearray(len(rgba))
@@ -121,14 +141,15 @@ def render_png(state: MapState, scale: int = 3, room_colours: dict[int, tuple[in
             if orientation == "landscape_right":
                 row = b"".join(row[x * 4:x * 4 + 4] for x in range(w - 1, -1, -1))
             out[y * stride:(y + 1) * stride] = row
-        return _png(w, h, out)
-    return _png(w, h, rgba)
+        return _finish(w, h, out, min_aspect)
+    return _finish(w, h, rgba, min_aspect)
 
 
 ORIENTATIONS = ("app", "landscape_right", "landscape_left", "stored")
 
 
-def calibration_points(state: MapState, scale: int = 3, orientation: str = "stored", crop: bool = True) -> list[dict] | None:
+def calibration_points(state: MapState, scale: int = 3, orientation: str = "stored", crop: bool = True,
+                       min_aspect: float = 0.0) -> list[dict] | None:
     """Three robot-pose <-> image-pixel pairs for map cards (e.g. the Xiaomi Vacuum Map card)."""
     lay = state.layout
     if lay is None or "origin" not in getattr(lay, "header", {}):
@@ -139,6 +160,8 @@ def calibration_points(state: MapState, scale: int = 3, orientation: str = "stor
         if box:
             x0, y0, x1, y1 = box
     w, h = (x1 - x0) * scale, (y1 - y0) * scale
+    out_w, out_h = (h, w) if orientation == "app" else (w, h)
+    pad = pad_left(out_w, out_h, min_aspect)
     points = []
     for pose in ((0, 0), (1000, 0), (0, 1000)):
         px, py = state.to_pixel(pose)
@@ -149,6 +172,7 @@ def calibration_points(state: MapState, scale: int = 3, orientation: str = "stor
             ix = w - ix
         elif orientation == "landscape_left":
             iy = h - iy
+        ix += pad
         points.append({"vacuum": {"x": pose[0], "y": pose[1]}, "map": {"x": round(ix, 1), "y": round(iy, 1)}})
     return points
 

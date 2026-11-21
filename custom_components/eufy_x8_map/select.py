@@ -9,14 +9,14 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from homeassistant.const import EntityCategory
 
-from .const import CONF_ORIENTATION, DOMAIN, SUCTION_LEVELS
+from .const import CONF_MAP_SIZE, CONF_ORIENTATION, DOMAIN, MAP_SIZES, SUCTION_LEVELS
 from .coordinator import X8MapCoordinator
 from .entity import X8MapEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([SuctionSelect(coordinator), MapLayoutSelect(coordinator)])
+    async_add_entities([SuctionSelect(coordinator), MapLayoutSelect(coordinator), MapSizeSelect(coordinator)])
 
 
 class SuctionSelect(X8MapEntity, SelectEntity):
@@ -59,4 +59,24 @@ class MapLayoutSelect(X8MapEntity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         entry = self.coordinator.entry
         self.hass.config_entries.async_update_entry(entry, options={**entry.options, CONF_ORIENTATION: option})
+        self.coordinator.async_update_listeners()
+
+
+class MapSizeSelect(X8MapEntity, SelectEntity):
+    """Full width, or compact (4:3) / square: the map is drawn smaller, centred, so a whole card fits a phone."""
+
+    _attr_options = list(MAP_SIZES)
+    _attr_icon = "mdi:resize"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: X8MapCoordinator) -> None:
+        super().__init__(coordinator, "map_size")
+
+    @property
+    def current_option(self) -> str | None:
+        return self.coordinator.entry.options.get(CONF_MAP_SIZE, "full")
+
+    async def async_select_option(self, option: str) -> None:
+        entry = self.coordinator.entry
+        self.hass.config_entries.async_update_entry(entry, options={**entry.options, CONF_MAP_SIZE: option})
         self.coordinator.async_update_listeners()

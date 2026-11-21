@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.13.0 (21 Nov 2026)
+- **Map size** select: Full width, Compact (4:3) or Square. A tall map is drawn smaller and centred, so a whole vac card fits on a phone screen. Calibration follows, so the interactive map card still lines up.
+
 ## 0.12.0 (21 Nov 2026)
 - **Map layout** select (and option): As in the Eufy app (tall), Sideways right/left (wide - fits a phone screen), or As stored. Calibration points follow the layout, so the interactive map card keeps working.
 

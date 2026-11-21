@@ -6,7 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_ORIENTATION, CONF_ROOM_NAMES, DOMAIN
+from .const import CONF_MAP_SIZE, CONF_ORIENTATION, CONF_ROOM_NAMES, DOMAIN, MAP_SIZES
 from .coordinator import X8MapCoordinator
 from .entity import X8MapEntity
 from .lib.engine import parse_room_names
@@ -31,9 +31,10 @@ class X8MapCamera(X8MapEntity, Camera):
     async def async_camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
         state = self.coordinator.state
         orientation = self.coordinator.entry.options.get(CONF_ORIENTATION, "app")
-        key = (state.version, orientation, state.docked)
+        aspect = MAP_SIZES.get(self.coordinator.entry.options.get(CONF_MAP_SIZE, "full"), 0.0)
+        key = (state.version, orientation, state.docked, aspect)
         if key != self._png_version:
-            self._png = await self.hass.async_add_executor_job(render_png, state, 3, None, orientation)
+            self._png = await self.hass.async_add_executor_job(render_png, state, 3, None, orientation, True, aspect)
             self._png_version = key
         return self._png
 
@@ -52,7 +53,9 @@ class X8MapCamera(X8MapEntity, Camera):
             "map_format": lay.fmt if lay else None,
             "map_error": self.coordinator.map_error,
             "map_source": self.coordinator.map_source,
-            "calibration_points": calibration_points(state, 3, self.coordinator.entry.options.get(CONF_ORIENTATION, "app")),
+            "calibration_points": calibration_points(
+                state, 3, self.coordinator.entry.options.get(CONF_ORIENTATION, "app"), True,
+                MAP_SIZES.get(self.coordinator.entry.options.get(CONF_MAP_SIZE, "full"), 0.0)),
             "cloud_error": self.coordinator.cloud_error,
         }
 

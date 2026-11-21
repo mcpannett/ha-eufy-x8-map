@@ -118,6 +118,14 @@
           "landscape_left": "Sideways (left)",
           "stored": "As stored"
         }
+      },
+      "map_size": {
+        "name": "Map size",
+        "state": {
+          "full": "Full width",
+          "compact": "Compact (4:3)",
+          "square": "Square"
+        }
       }
     }
   },

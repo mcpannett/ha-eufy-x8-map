@@ -226,3 +226,20 @@ def test_landscape_calibration_matches_dock():
     left = calibration_points(st, 3, "landscape_left")[0]["map"]
     assert (r["x"], r["y"]) == ((x1 - x0) * 3 - sx, sy)
     assert (left["x"], left["y"]) == (sx, (y1 - y0) * 3 - sy)
+
+
+def test_compact_padding_shifts_calibration():
+    from types import SimpleNamespace
+    from lib.engine import MapState
+    from lib.render import calibration_points, pad_left
+    assert pad_left(90, 120, 4 / 3) == 35 and pad_left(200, 100, 4 / 3) == 0
+    W, H = 100, 80
+    px = bytearray([0xFF]) * (W * H)
+    for y in range(30, 70):
+        for x in range(45, 60):
+            px[y * W + x] = 2 << 2
+    st = MapState()
+    st.layout = SimpleNamespace(width=W, height=H, pixels=bytes(px), header={"origin": (-500, -400)})
+    full = calibration_points(st, 3, "stored")[0]["map"]
+    compact = calibration_points(st, 3, "stored", True, 4 / 3)[0]["map"]
+    assert compact["x"] - full["x"] == 63 and compact["y"] == full["y"]
