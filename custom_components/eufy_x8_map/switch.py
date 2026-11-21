@@ -8,15 +8,19 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import CONF_ALLOW_COMMANDS, CONF_LOCAL_LINK, CONF_RECORD_COMMANDS, DOMAIN
+from .const import CONF_ALLOW_COMMANDS, CONF_LOCAL_LINK, CONF_RECORD_COMMANDS, CONF_ROOM_NAMES, DOMAIN
+from .lib.engine import parse_room_names
 from .coordinator import X8MapCoordinator
 from .entity import X8MapEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([RecordCommandsSwitch(coordinator), AllowCommandsSwitch(coordinator), LocalLinkSwitch(coordinator)])
+    names = parse_room_names(entry.options.get(CONF_ROOM_NAMES))
+    async_add_entities([RecordCommandsSwitch(coordinator), AllowCommandsSwitch(coordinator), LocalLinkSwitch(coordinator)]
+                       + [RoomSelectSwitch(coordinator, r, names.get(r, f"Room {r}")) for r in coordinator.state.rooms])
 
 
 class RecordCommandsSwitch(X8MapEntity, SwitchEntity):
@@ -96,3 +100,33 @@ class LocalLinkSwitch(X8MapEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self._set(False)
+
+
+class RoomSelectSwitch(X8MapEntity, SwitchEntity, RestoreEntity):
+    """Tick a room for 'Clean selected rooms'. Only a selection in HA; sends nothing to the robot."""
+
+    _attr_icon = "mdi:checkbox-marked-circle-outline"
+
+    def __init__(self, coordinator: X8MapCoordinator, room: int, name: str) -> None:
+        super().__init__(coordinator, f"select_room_{room}")
+        self._room = room
+        self._attr_translation_key = None
+        self._attr_name = f"Select {name}"
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last and last.state == "on":
+            self.coordinator.selected_rooms.add(self._room)
+
+    @property
+    def is_on(self) -> bool:
+        return self._room in self.coordinator.selected_rooms
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        self.coordinator.selected_rooms.add(self._room)
+        self.coordinator.async_update_listeners()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        self.coordinator.selected_rooms.discard(self._room)
+        self.coordinator.async_update_listeners()

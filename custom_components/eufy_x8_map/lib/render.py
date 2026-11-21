@@ -25,8 +25,32 @@ def _png(width: int, height: int, rgba: bytearray) -> bytes:
             + chunk(b"IDAT", zlib.compress(rows, 6)) + chunk(b"IEND", b""))
 
 
+def content_box(state: MapState, margin: int = 6) -> tuple[int, int, int, int] | None:
+    """(x0, y0, x1, y1) in layout pixels around rooms, walls, dock, robot and route; x1/y1 exclusive."""
+    lay = state.layout
+    if lay is None:
+        return None
+    xs: list[int] = []
+    ys: list[int] = []
+    for y in range(lay.height):
+        row = lay.pixels[y * lay.width:(y + 1) * lay.width]
+        # Rooms only: stray wall/obstacle specks far from the house would otherwise keep the empty space.
+        idx = [x for x, b in enumerate(row) if (b >> 2) <= 31]
+        if idx:
+            xs += (idx[0], idx[-1])
+            ys.append(y)
+    points = [p for p in (state.dock, state.robot) if p] + [p for piece in state.route_pixels() for p in piece]
+    for px, py in points:
+        xs.append(int(px))
+        ys.append(int(py))
+    if not xs:
+        return None
+    return (max(0, min(xs) - margin), max(0, min(ys) - margin),
+            min(lay.width, max(xs) + margin + 1), min(lay.height, max(ys) + margin + 1))
+
+
 def render_png(state: MapState, scale: int = 3, room_colours: dict[int, tuple[int, int, int]] | None = None,
-               orientation: str = "stored") -> bytes | None:
+               orientation: str = "stored", crop: bool = True) -> bytes | None:
     """Return a PNG of the map with route, dock and robot, or None without a map."""
     lay = state.layout
     if lay is None:
@@ -69,6 +93,16 @@ def render_png(state: MapState, scale: int = 3, room_colours: dict[int, tuple[in
         dot(*state.dock, DOCK, 2 * scale)
     if state.robot:
         dot(*state.robot, ROBOT, 2 * scale)
+    if crop:  # trim empty space around the house so the card isn't mostly blank
+        box = content_box(state)
+        if box:
+            x0, y0, x1, y1 = (v * scale for v in box)
+            cw, ch = x1 - x0, y1 - y0
+            cropped = bytearray(cw * ch * 4)
+            for yy in range(ch):
+                src = ((y0 + yy) * w + x0) * 4
+                cropped[yy * cw * 4:(yy + 1) * cw * 4] = rgba[src:src + cw * 4]
+            rgba, w, h = cropped, cw, ch
     if orientation == "app":  # the Eufy app shows the map transposed (x and y swapped)
         out = bytearray(len(rgba))
         for y in range(h):

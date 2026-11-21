@@ -87,6 +87,12 @@
     "button": {
       "refresh_map": {
         "name": "Refresh map"
+      },
+      "clean_selected": {
+        "name": "Clean selected rooms"
+      },
+      "clean_all": {
+        "name": "Clean all rooms"
       }
     },
     "switch": {

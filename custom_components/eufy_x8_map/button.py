@@ -19,6 +19,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     names = parse_room_names(entry.options.get(CONF_ROOM_NAMES))
     entities: list[ButtonEntity] = [RefreshMapButton(coordinator)]
     entities += [CleanRoomButton(coordinator, room, names.get(room, f"Room {room}")) for room in coordinator.state.rooms]
+    entities += [CleanSelectedButton(coordinator), CleanAllButton(coordinator)]
     async_add_entities(entities)
 
 
@@ -52,3 +53,41 @@ class CleanRoomButton(X8MapEntity, ButtonEntity):
             raise ServiceValidationError(str(err)) from None
         except Exception as err:  # noqa: BLE001
             raise HomeAssistantError(f"Send failed ({type(err).__name__})") from None
+
+
+async def _clean(coordinator: X8MapCoordinator, rooms: list[int]) -> None:
+    rooms = [r for r in rooms if r in coordinator.state.rooms]
+    if not rooms:
+        raise ServiceValidationError("No rooms selected - tick at least one room first")
+    try:
+        await coordinator.async_clean_rooms(sorted(rooms))
+    except PermissionError as err:
+        raise ServiceValidationError(str(err)) from None
+    except Exception as err:  # noqa: BLE001
+        raise HomeAssistantError(f"Send failed ({type(err).__name__})") from None
+
+
+class CleanSelectedButton(X8MapEntity, ButtonEntity):
+    """Clean the ticked rooms in one run (two passes), then clear the ticks."""
+
+    _attr_icon = "mdi:playlist-check"
+
+    def __init__(self, coordinator: X8MapCoordinator) -> None:
+        super().__init__(coordinator, "clean_selected")
+
+    async def async_press(self) -> None:
+        await _clean(self.coordinator, list(self.coordinator.selected_rooms))
+        self.coordinator.selected_rooms.clear()
+        self.coordinator.async_update_listeners()
+
+
+class CleanAllButton(X8MapEntity, ButtonEntity):
+    """Clean every room on the map in one run (two passes)."""
+
+    _attr_icon = "mdi:home-floor-g"
+
+    def __init__(self, coordinator: X8MapCoordinator) -> None:
+        super().__init__(coordinator, "clean_all")
+
+    async def async_press(self) -> None:
+        await _clean(self.coordinator, list(self.coordinator.state.rooms))

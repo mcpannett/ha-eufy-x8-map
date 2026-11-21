@@ -152,3 +152,21 @@ def test_docked_robot_drawn_on_dock():
     assert st.robot == st.dock == (233.0, 65.0) and st.version == v + 1
     st.set_docked(False)
     assert st.robot == st.to_pixel((-1000, -100))
+
+
+def test_render_crops_to_rooms():
+    import struct
+    from types import SimpleNamespace
+    from lib.engine import MapState
+    from lib.render import content_box, render_png
+    W, H = 100, 80
+    px = bytearray([0xFF]) * (W * H)
+    for y in range(30, 50):
+        for x in range(40, 70):
+            px[y * W + x] = 2 << 2
+    px[1 * W + 1] = 0xFC  # stray speck far away is ignored
+    st = MapState()
+    st.layout = SimpleNamespace(width=W, height=H, pixels=bytes(px), header={"origin": (-500, -400)})  # dock at (50, 40)
+    assert content_box(st) == (34, 24, 76, 56)
+    png = render_png(st, 3, None, "stored")
+    assert struct.unpack(">II", png[16:24]) == (42 * 3, 32 * 3)

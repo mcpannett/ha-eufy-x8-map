@@ -55,6 +55,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._link: LocalLink | None = None
         self._link_task: asyncio.Task | None = None
         self._decoded = False
+        self.selected_rooms: set[int] = set()  # rooms ticked on the card for "Clean selected"
         # Offline copy of the room layout (not secret: floor plan only).
         self._store: Store = Store(hass, 1, f"{DOMAIN}.{entry.data[CONF_DEVICE_ID]}.layout")
         self._cached_raw: bytes | None = None

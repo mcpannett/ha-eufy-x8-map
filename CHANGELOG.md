@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.0 (21 Nov 2026)
+- Map image is cropped to the house (no big empty margins on the card).
+- Room picking: a **Select <room>** switch per room (HA-side only), **Clean selected rooms** (one run, two passes, clears the ticks) and **Clean all rooms** buttons.
+- Card: pick rooms, Clean selected, Whole downstairs, Spot, Home.
+
 ## 0.8.0 (21 Nov 2026)
 - **Suction level** select (Quiet / Standard / Turbo / Max, DPS 102 - same values as the robovac integration).
 - Robot is drawn on the dock whenever it reports Charging/Sleeping (the cloud position stops before it arrives).

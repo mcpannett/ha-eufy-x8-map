@@ -1,4 +1,4 @@
-# Eufy X8 vac card - built-in Home Assistant cards only (nothing to install). Needs integration 0.8.0+.
+# Eufy X8 vac card - built-in Home Assistant cards only (nothing to install). Needs integration 0.9.0+.
 # Dashboard > Edit card (or Add card > Manual), Show code editor, then paste everything below.
 type: vertical-stack
 cards:
@@ -43,144 +43,113 @@ cards:
     icon: mdi:fan
     features:
     - type: select-options
+- type: markdown
+  content: '**Pick rooms** (tap to tick), then *Clean selected*.'
 - type: grid
   columns: 3
   square: false
   cards:
   - type: tile
-    entity: button.robovac_map_clean_porch
+    entity: switch.robovac_map_select_porch
     name: Porch
     icon: mdi:door-open
     hide_state: true
     vertical: true
     color: teal
     tap_action:
-      action: perform-action
-      perform_action: button.press
-      target:
-        entity_id: button.robovac_map_clean_porch
-      confirmation:
-        text: Clean the Porch (2 passes)?
+      action: toggle
     icon_tap_action:
-      action: perform-action
-      perform_action: button.press
-      target:
-        entity_id: button.robovac_map_clean_porch
-      confirmation:
-        text: Clean the Porch (2 passes)?
+      action: toggle
   - type: tile
-    entity: button.robovac_map_clean_hallway
+    entity: switch.robovac_map_select_hallway
     name: Hallway
     icon: mdi:shoe-print
     hide_state: true
     vertical: true
     color: teal
     tap_action:
-      action: perform-action
-      perform_action: button.press
-      target:
-        entity_id: button.robovac_map_clean_hallway
-      confirmation:
-        text: Clean the Hallway (2 passes)?
+      action: toggle
     icon_tap_action:
-      action: perform-action
-      perform_action: button.press
-      target:
-        entity_id: button.robovac_map_clean_hallway
-      confirmation:
-        text: Clean the Hallway (2 passes)?
+      action: toggle
   - type: tile
-    entity: button.robovac_map_clean_living_room
+    entity: switch.robovac_map_select_living_room
     name: Living Room
     icon: mdi:sofa
     hide_state: true
     vertical: true
     color: teal
     tap_action:
-      action: perform-action
-      perform_action: button.press
-      target:
-        entity_id: button.robovac_map_clean_living_room
-      confirmation:
-        text: Clean the Living Room (2 passes)?
+      action: toggle
     icon_tap_action:
-      action: perform-action
-      perform_action: button.press
-      target:
-        entity_id: button.robovac_map_clean_living_room
-      confirmation:
-        text: Clean the Living Room (2 passes)?
+      action: toggle
   - type: tile
-    entity: button.robovac_map_clean_bathroom
+    entity: switch.robovac_map_select_bathroom
     name: Bathroom
     icon: mdi:shower
     hide_state: true
     vertical: true
     color: teal
     tap_action:
-      action: perform-action
-      perform_action: button.press
-      target:
-        entity_id: button.robovac_map_clean_bathroom
-      confirmation:
-        text: Clean the Bathroom (2 passes)? Check the door is open.
+      action: toggle
     icon_tap_action:
-      action: perform-action
-      perform_action: button.press
-      target:
-        entity_id: button.robovac_map_clean_bathroom
-      confirmation:
-        text: Clean the Bathroom (2 passes)? Check the door is open.
+      action: toggle
   - type: tile
-    entity: button.robovac_map_clean_kitchen
+    entity: switch.robovac_map_select_kitchen
     name: Kitchen
     icon: mdi:silverware-fork-knife
     hide_state: true
     vertical: true
     color: teal
     tap_action:
-      action: perform-action
-      perform_action: button.press
-      target:
-        entity_id: button.robovac_map_clean_kitchen
-      confirmation:
-        text: Clean the Kitchen (2 passes)?
+      action: toggle
     icon_tap_action:
-      action: perform-action
-      perform_action: button.press
-      target:
-        entity_id: button.robovac_map_clean_kitchen
-      confirmation:
-        text: Clean the Kitchen (2 passes)?
+      action: toggle
   - type: tile
-    entity: button.robovac_map_clean_kitchen
-    name: Hall + Kitchen
-    icon: mdi:vector-combine
+    entity: button.robovac_map_clean_selected
+    name: Clean selected
+    icon: mdi:playlist-check
     hide_state: true
     vertical: true
-    color: teal
+    color: green
     tap_action:
       action: perform-action
-      perform_action: eufy_x8_map.clean_rooms
-      data:
-        rooms:
-        - Hallway
-        - Kitchen
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_selected
       confirmation:
-        text: Clean the Hallway and Kitchen (2 passes)?
+        text: Clean the ticked rooms (2 passes)?
     icon_tap_action:
       action: perform-action
-      perform_action: eufy_x8_map.clean_rooms
-      data:
-        rooms:
-        - Hallway
-        - Kitchen
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_selected
       confirmation:
-        text: Clean the Hallway and Kitchen (2 passes)?
+        text: Clean the ticked rooms (2 passes)?
 - type: grid
-  columns: 2
+  columns: 3
   square: false
   cards:
+  - type: tile
+    entity: button.robovac_map_clean_all
+    name: Whole downstairs
+    icon: mdi:home-floor-g
+    hide_state: true
+    vertical: true
+    color: green
+    tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_all
+      confirmation:
+        text: Clean every room downstairs (2 passes)? Check the Bathroom door is open.
+    icon_tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_all
+      confirmation:
+        text: Clean every room downstairs (2 passes)? Check the Bathroom door is open.
   - type: tile
     entity: button.robovac_map_clean_hallway
     name: Spot (Hallway)
