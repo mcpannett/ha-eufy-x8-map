@@ -123,7 +123,7 @@
       "fields": {
         "flows": {
           "name": "Flows",
-          "description": "List of {to_robot, t, data (base64)} from a capture."
+          "description": "List of captured flows: to_robot, t and base64 data."
         }
       }
     }
