@@ -326,6 +326,38 @@
     "care_probe": {
       "name": "Read part wear",
       "description": "Read-only: fetch brush, filter and sensor wear from the cloud logs now."
+    },
+    "set_part_hours": {
+      "name": "Set part hours",
+      "description": "Hours used per part (lifespan minus the app's 'remaining hours'). HA then adds cleaning time itself.",
+      "fields": {
+        "side_brush": {
+          "name": "Side brush",
+          "description": "Hours used."
+        },
+        "rolling_brush": {
+          "name": "Rolling brush",
+          "description": "Hours used."
+        },
+        "filter": {
+          "name": "Filter",
+          "description": "Hours used."
+        },
+        "sensors": {
+          "name": "Sensors",
+          "description": "Hours used."
+        }
+      }
+    },
+    "reset_part": {
+      "name": "Reset part",
+      "description": "You replaced a part: its hours go back to 0.",
+      "fields": {
+        "part": {
+          "name": "Part",
+          "description": "Which part was replaced."
+        }
+      }
     }
   }
 }

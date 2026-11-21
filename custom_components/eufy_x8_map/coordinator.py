@@ -66,6 +66,9 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._last_care_poll = -1e9
         self._last_care_cloud = -1e9
         self.care_raw = None                  # last good DPS 116 (part wear), kept across restarts
+        self.care_run_s = 0.0                 # cleaning time HA has counted since that report
+        self.care_source = None               # "robot" or "set in HA"
+        self._last_robot_care = None
         self._history_store: Store = Store(hass, 1, f"{DOMAIN}.{entry.data[CONF_DEVICE_ID]}.history")
         # Offline copy of the room layout (not secret: floor plan only).
         self._store: Store = Store(hass, 1, f"{DOMAIN}.{entry.data[CONF_DEVICE_ID]}.layout")
@@ -80,12 +83,25 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self.run_log = list(data.get("runs") or [])
         self._care_alerted = list(data.get("care_alerted") or [])
         self.care_raw = data.get("care_raw")
+        self.care_run_s = float(data.get("care_run_s") or 0.0)
+        self.care_source = data.get("care_source")
 
     def _save_history(self) -> None:
         self._history_store.async_delay_save(lambda: {
             "last_cleaned": {str(k): v for k, v in self.tracker.last_cleaned.items()}, "last_run": self.last_run,
             "runs": self.run_log, "care_alerted": self._care_alerted,
-            "care_raw": self.care_raw}, 5)
+            "care_raw": self.care_raw, "care_run_s": self.care_run_s, "care_source": self.care_source}, 5)
+
+    @property
+    def care_report(self):
+        """Part wear now: last report + cleaning time counted by HA since (whole hours)."""
+        from .lib.care import with_extra_hours
+        return with_extra_hours(self.care_raw, self.care_run_s)
+
+    def set_care_base(self, report, source: str) -> None:
+        self.care_raw, self.care_run_s, self.care_source = report, 0.0, source
+        self._save_history()
+        self.async_update_listeners()
 
     @property
     def topup_days(self) -> int:
@@ -129,10 +145,10 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
                 self.alert(f"The X8 can't reach a room{near}. Is a door closed?", key="unreachable")
             self._last_run_code = code
         raw = self.dp("116")
-        if raw and consumables(raw) and raw != self.care_raw:
-            self.care_raw = raw
-            self._save_history()
-        parts = consumables(self.care_raw)
+        if raw and consumables(raw) and raw != self._last_robot_care:
+            self._last_robot_care = raw
+            self.set_care_base(raw, "robot")
+        parts = consumables(self.care_report)
         worn = sorted(k for k, v in parts.items() if v["percent"] <= REPLACE_AT_PERCENT)
         new = [k for k in worn if k not in self._care_alerted]
         if new:
@@ -165,6 +181,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
                 data["room_names"] = [names.get(r, f"Room {r}") for r in event["rooms"]]
                 data["area_m2"] = self.dp("110")
                 self.last_run = {**data, "finished": dt_util.utcnow().isoformat(timespec="seconds")}
+                self.care_run_s += float(event.get("duration_s") or 0)  # parts wear by run time
                 if event["rooms"]:  # a run that never got into a room isn't a clean
                     now_ts = dt_util.utcnow().timestamp()
                     self.run_log = add_run(self.run_log, {**data, "ts": now_ts}, now_ts)
@@ -459,10 +476,9 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             raw, notes = await self.hass.async_add_executor_job(self.client.fetch_care_report)
         except Exception as err:  # noqa: BLE001
             return [f"failed: {type(err).__name__}"]
-        if raw and consumables(raw) and raw != self.care_raw:
-            self.care_raw = raw
-            self._save_history()
-            self.async_update_listeners()
+        if raw and consumables(raw) and raw != self._last_robot_care:
+            self._last_robot_care = raw
+            self.set_care_base(raw, "robot")
         return notes
 
     async def _poll_dps(self, now: float) -> None:

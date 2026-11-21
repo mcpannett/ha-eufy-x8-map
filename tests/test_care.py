@@ -43,3 +43,12 @@ def test_care_report_from_log_shapes():
                      {"dpId": 104, "value": 88, "timeStamp": 1795200001}]}
     hits = [e for e in history_entries(log) if e["dp"] == "116" and consumable_hours(e["value"])]
     assert len(hits) == 1 and consumable_hours(hits[0]["value"])["SB"] == 81
+
+
+def test_hours_counted_by_ha():
+    from lib.care import consumables, make_report, with_extra_hours
+    base = make_report({"side_brush": 81, "rolling_brush": 48, "filter": 48, "sensors": 15})
+    assert consumables(with_extra_hours(base, 0))["side_brush"]["percent"] == 67
+    later = consumables(with_extra_hours(base, 2 * 3600 + 1800))       # 2.5 h of cleaning -> +2 h
+    assert later["side_brush"]["used_h"] == 83 and later["sensors"]["left_h"] == 18
+    assert with_extra_hours(None, 999) is None

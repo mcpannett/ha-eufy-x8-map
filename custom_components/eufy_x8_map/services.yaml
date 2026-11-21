@@ -20,6 +20,31 @@ set_alerts:
       default: true
       selector:
         boolean:
+set_part_hours:
+  fields:
+    side_brush:
+      example: 81
+      selector:
+        number: {min: 0, max: 2000, mode: box}
+    rolling_brush:
+      example: 48
+      selector:
+        number: {min: 0, max: 2000, mode: box}
+    filter:
+      example: 48
+      selector:
+        number: {min: 0, max: 2000, mode: box}
+    sensors:
+      example: 15
+      selector:
+        number: {min: 0, max: 2000, mode: box}
+reset_part:
+  fields:
+    part:
+      required: true
+      selector:
+        select:
+          options: [side_brush, rolling_brush, filter, sensors]
 care_probe:
 rename_room:
   fields:

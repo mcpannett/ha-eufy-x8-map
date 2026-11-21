@@ -247,7 +247,7 @@ class ConsumableSensor(X8MapEntity, SensorEntity):
 
     def _part(self) -> dict | None:
         from .lib.care import consumables
-        return consumables(self.coordinator.care_raw).get(self._key)
+        return consumables(self.coordinator.care_report).get(self._key)
 
     @property
     def native_value(self):
@@ -257,7 +257,8 @@ class ConsumableSensor(X8MapEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         part = self._part() or {}
-        return {"hours_left": part.get("left_h"), "hours_used": part.get("used_h"), "lifespan_hours": part.get("life_h")}
+        return {"hours_left": part.get("left_h"), "hours_used": part.get("used_h"), "lifespan_hours": part.get("life_h"),
+                "source": self.coordinator.care_source}
 
 
 class RoomsDueSensor(X8MapEntity, SensorEntity):

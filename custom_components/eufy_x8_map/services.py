@@ -73,12 +73,29 @@ def async_register(hass: HomeAssistant) -> None:
         if target and call.data.get("test"):
             coord.alert("Test: Eufy X8 alerts will arrive here, with the live map.", title="Eufy X8", key="test")
 
+    async def set_part_hours(call: ServiceCall) -> None:
+        """Set hours used per part (e.g. from the Eufy app). Parts not given keep their current value."""
+        from .lib.care import consumables, make_report
+        coord = _coordinator(hass)
+        now = {k: v["used_h"] for k, v in consumables(coord.care_report).items()}
+        given = {k: int(call.data[k]) for k in ("side_brush", "rolling_brush", "filter", "sensors") if k in call.data}
+        if not given:
+            raise ServiceValidationError("Give at least one part's hours")
+        coord.set_care_base(make_report({**now, **given}), "set in HA")
+
+    async def reset_part(call: ServiceCall) -> None:
+        """A part was replaced: its hours go back to 0."""
+        from .lib.care import consumables, make_report
+        coord = _coordinator(hass)
+        now = {k: v["used_h"] for k, v in consumables(coord.care_report).items()}
+        coord.set_care_base(make_report({**now, call.data["part"]: 0}), "set in HA")
+
     async def care_probe(call: ServiceCall) -> ServiceResponse:
         """Read-only: re-read part wear from the cloud logs now and say what each log call returned."""
         from .lib.care import consumables
         coord = _coordinator(hass)
         notes = await coord.async_care_from_cloud()
-        return {"notes": notes, "parts": consumables(coord.care_raw)}
+        return {"notes": notes, "parts": consumables(coord.care_report), "source": coord.care_source}
 
     async def rename_room(call: ServiceCall) -> None:
         """HA-only room name (no robot command). Accepts the room number or its current name."""
@@ -314,6 +331,12 @@ def async_register(hass: HomeAssistant) -> None:
         cv.has_at_least_one_key("x", "pixel_x")))
     hass.services.async_register(DOMAIN, "set_alerts", set_alerts, schema=vol.Schema({
         vol.Optional("notify_service", default=""): cv.string, vol.Optional("test", default=True): cv.boolean}))
+    hours = vol.All(vol.Coerce(int), vol.Range(min=0, max=2000))
+    hass.services.async_register(DOMAIN, "set_part_hours", set_part_hours, schema=vol.Schema({
+        vol.Optional("side_brush"): hours, vol.Optional("rolling_brush"): hours,
+        vol.Optional("filter"): hours, vol.Optional("sensors"): hours}))
+    hass.services.async_register(DOMAIN, "reset_part", reset_part, schema=vol.Schema({
+        vol.Required("part"): vol.In(["side_brush", "rolling_brush", "filter", "sensors"])}))
     hass.services.async_register(DOMAIN, "care_probe", care_probe, schema=vol.Schema({}),
                                  supports_response=SupportsResponse.ONLY)
     hass.services.async_register(DOMAIN, "rename_room", rename_room, schema=vol.Schema({

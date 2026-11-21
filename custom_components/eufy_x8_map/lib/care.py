@@ -46,6 +46,21 @@ def consumables(raw: Any) -> dict[str, dict[str, int]]:
     return out
 
 
+def with_extra_hours(raw: Any, extra_s: float) -> dict[str, Any] | None:
+    """Base report plus HA-counted run time (whole hours, like the robot). None if no base."""
+    hours = consumable_hours(raw)
+    if not hours:
+        return None
+    add = int(max(0.0, extra_s) // 3600)
+    return {"consumable": {"duration": {k: v + add for k, v in hours.items()}}}
+
+
+def make_report(hours_used: dict[str, int]) -> dict[str, Any]:
+    """{"side_brush": 81, ...} -> a DPS-116-shaped report."""
+    by_key = {key: code for code, (key, _life) in CONSUMABLES.items()}
+    return {"consumable": {"duration": {by_key[k]: int(v) for k, v in hours_used.items() if k in by_key}}}
+
+
 def rooms_due(rooms: list[int], last_cleaned: dict[int, float], days: float, now: float) -> list[int]:
     """Rooms not cleaned in the last `days` (never cleaned = due), oldest first."""
     cutoff = now - days * 86400
