@@ -211,7 +211,7 @@ def async_register(hass: HomeAssistant) -> None:
         rooms = []
         for rid, shape in sorted(room_shapes(coord.state).items()):
             item = {"id": str(rid), "outline": shape["outline"],
-                    "label": {"text": names.get(rid, f"Room {rid}"), "x": shape["centre"][0], "y": shape["centre"][1], "offset_y": 30}}
+                    "label": {"text": names.get(rid, f"Room {rid}"), "x": shape["centre"][0], "y": shape["centre"][1]}}
             sw = reg.async_get_entity_id("switch", DOMAIN, f"{dev}_select_room_{rid}")
             if sw:
                 item["state_entity"] = sw
