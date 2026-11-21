@@ -58,7 +58,7 @@ class X8Vacuum(X8MapEntity, StateVacuumEntity):
         error = self.coordinator.dp("106")
         if error not in (None, 0, "0", "no_error"):
             return VacuumActivity.ERROR
-        if status == "standby" and self.coordinator.dp("2") is False and self.coordinator.tracker.running:
+        if status == "standby" and self.coordinator.tracker.running:
             return VacuumActivity.PAUSED
         if self.coordinator.is_docked:
             return VacuumActivity.DOCKED

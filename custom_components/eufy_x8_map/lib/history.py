@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 RUNNING = {"Running", "Locating"}
-FINISHED = {"Charging", "Sleeping", "standby", "completed"}
+FINISHED = {"Charging", "Sleeping", "completed"}  # "standby" mid-run = paused, not finished
 ERROR_STATUSES = {"recharge_needed"}
 MIN_DWELL_S = 30.0
 

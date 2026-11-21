@@ -25,3 +25,12 @@ def test_error_once():
     tr = RunTracker()
     assert run(tr, [(0, "Running", 1, 0), (5, "Running", 1, 3), (6, "Running", 1, 3)]).count("error") == 1
     assert run(tr, [(7, "Running", 1, 0), (8, "recharge_needed", 1, 0)]).count("error") == 1
+
+
+def test_pause_keeps_run_open():
+    tr = RunTracker()
+    ev = run(tr, [(0, "Running", 4, 0), (40, "standby", 4, 0), (60, "Running", 4, 0), (80, "Recharge", 4, 0), (90, "Charging", None, 0)])
+    assert ev.count("clean_started") == 1 and ev[-1] == "clean_finished"
+    tr2 = RunTracker()
+    run(tr2, [(0, "Running", 4, 0), (40, "standby", 4, 0)])
+    assert tr2.running

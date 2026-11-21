@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.2 (21 Nov 2026)
+- Paused runs show as **Paused** (not Idle) and a run isn't counted as finished until the robot is back on the dock; Start after a pause sends resume.
+- Tested on the robot: locate, whole-house start, pause, return home (all over the LAN).
+
 ## 0.11.1 (21 Nov 2026)
 - "completed" (fully charged on the dock) now counts as docked: robot drawn on the dock, vacuum shows Docked, Room shows Docked.
 
