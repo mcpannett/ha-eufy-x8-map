@@ -11,7 +11,8 @@ The X8 builds a SLAM map, but no existing Home Assistant integration shows it. T
 | 1 | Read-only probe: does the cloud map method work on the X8? | **Done.** Map and live position both work on the T2262A |
 | 2 | Integration: map camera, current room, route, room names, robot status | **Done (0.2.x)** |
 | 3 | Room cleaning and spot cleaning | **0.5.0:** `clean_rooms` and `spot_clean` services, built from formats captured from the Eufy app. Awaiting first supervised test. Plain goto stays disabled |
-| 4 | Fully local map (no Eufy cloud) via the robot's P2P channel | Research |
+| 3b | Local control: LAN link, local sensors, room buttons | **0.6.0:** built, testing |
+| 4 | Fully local map (no Eufy cloud) | Research |
 
 Phase 1–2 fetch the map from Eufy's cloud (the room layout file `lay.bin` plus live position frames). Robot control stays local with your current integration. The long-term goal is to drop the cloud.
 

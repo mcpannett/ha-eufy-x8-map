@@ -30,11 +30,12 @@
     "step": {
       "init": {
         "title": "Map options",
-        "description": "Room names: type them as number=name, comma separated, e.g. 1=Living Room, 2=Hallway. The numbers are in the map camera's room_names attribute. Vacuum entity (optional) switches the map to fast updates as soon as cleaning starts.",
+        "description": "Room names: type them as number=name, comma separated, e.g. 1=Living Room, 2=Hallway. The numbers are in the map camera's room_names attribute. Vacuum entity (optional) switches the map to fast updates as soon as cleaning starts. Robot IP is only needed if the local link can't find the robot by itself.",
         "data": {
           "vacuum_entity": "Vacuum entity",
           "room_names": "Room names",
-          "orientation": "Map layout"
+          "orientation": "Map layout",
+          "robot_host": "Robot IP (optional)"
         }
       }
     }
@@ -60,6 +61,18 @@
       },
       "recorded_commands": {
         "name": "Recorded app commands"
+      },
+      "battery": {
+        "name": "Battery"
+      },
+      "suction": {
+        "name": "Suction"
+      },
+      "clean_mode": {
+        "name": "Clean mode"
+      },
+      "local_link_status": {
+        "name": "Local link status"
       }
     },
     "button": {
@@ -73,6 +86,9 @@
       },
       "allow_commands": {
         "name": "Allow commands"
+      },
+      "local_link": {
+        "name": "Local link"
       }
     }
   },
@@ -164,6 +180,16 @@
         "clean_times": {
           "name": "Passes",
           "description": "How many passes, 1 to 3. Default 2 (criss-cross)."
+        }
+      }
+    },
+    "local_probe": {
+      "name": "Local probe",
+      "description": "Read-only: find the robot on the LAN and read its status once. Sends no commands.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Robot IP to try (optional)."
         }
       }
     }

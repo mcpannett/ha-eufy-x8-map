@@ -11,7 +11,7 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_ACCOUNT, CONF_DEVICE_ID, CONF_DEVICE_NAME, CONF_MODEL, CONF_ORIENTATION, CONF_ROOM_NAMES,
-    CONF_VACUUM_ENTITY, DOMAIN,
+    CONF_ROBOT_HOST, CONF_VACUUM_ENTITY, DOMAIN,
 )
 from .lib.engine import Account, LoginError, account_login
 
@@ -80,5 +80,6 @@ class EufyX8MapOptionsFlow(OptionsFlow):
                 selector.SelectSelectorConfig(options=[
                     selector.SelectOptionDict(value="app", label="Match the Eufy app"),
                     selector.SelectOptionDict(value="stored", label="As stored by the robot")])),
+            vol.Optional(CONF_ROBOT_HOST, default=opts.get(CONF_ROBOT_HOST, "")): str,
         })
         return self.async_show_form(step_id="init", data_schema=schema)

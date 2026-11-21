@@ -23,3 +23,6 @@ DOCKED_STATUSES = {"Charging", "Sleeping"}
 CONF_ALLOW_COMMANDS = "allow_commands"  # test-command layer gate, off by default
 GOTO_CLEAR_WAIT_S = 35                  # the app sends "clear" ~35 s before "goto"
 RECORD_MAX_S = 6 * 3600       # recorder turns itself off after this
+CONF_LOCAL_LINK = "local_link"          # LAN link to the robot (status + commands), off by default
+CONF_ROBOT_HOST = "robot_host"          # optional fixed IP; otherwise found by UDP discovery
+LOCAL_RETRY_S = 30                      # wait before reconnecting the LAN link

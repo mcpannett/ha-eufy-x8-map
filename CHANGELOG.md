@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 (21 Nov 2026) - milestone 2, part 1: local link
+- New **Local link** switch (off by default): a LAN connection to the robot (Tuya 3.3, port 6668). The robot is found by UDP discovery, or set its IP in options. The key is fetched into memory only.
+- Commands go over the LAN when the link is up, with the cloud as fallback. Each send records its route.
+- Live local sensors: Battery, Suction, Clean mode, and Robot status (local when the link is up). Diagnostic **Local link status** sensor lists other DPS for decoding later.
+- One **Clean <room>** button per map room (two passes; needs Allow commands).
+- `local_probe` service: read-only LAN check.
+
 ## 0.5.1 (21 Nov 2026)
 - `clean_rooms` and `spot_clean` default to 2 passes (criss-cross). First supervised Bathroom test passed; map unchanged.
 

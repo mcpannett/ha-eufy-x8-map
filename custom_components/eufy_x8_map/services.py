@@ -80,11 +80,10 @@ def async_register(hass: HomeAssistant) -> None:
         names = parse_room_names(coord.entry.options.get(CONF_ROOM_NAMES))
         try:
             ids = resolve_rooms(call.data["rooms"], names, state.rooms)
-            dps = room_clean_dps(ids, call.data.get("clean_times", DEFAULT_CLEAN_TIMES))
+            room_clean_dps(ids, call.data.get("clean_times", DEFAULT_CLEAN_TIMES))  # validates
         except CommandRefused as err:
             raise ServiceValidationError(str(err)) from None
-        label = "clean rooms " + ", ".join(names.get(i, f"Room {i}") for i in ids)
-        await _guard(coord.async_send(dps, label))
+        await _guard(coord.async_clean_rooms(ids, call.data.get("clean_times", DEFAULT_CLEAN_TIMES)))
 
     async def spot_clean(call: ServiceCall) -> None:
         coord = _coordinator(hass)
@@ -106,6 +105,34 @@ def async_register(hass: HomeAssistant) -> None:
             raise ServiceValidationError(str(err)) from None
         await _guard(coord.async_send(dps, f"spot clean at {pose[0]},{pose[1]} (room {room})"))
 
+    async def local_probe(call: ServiceCall) -> ServiceResponse:
+        """Read-only: discover the robot and read its DPS once over the LAN. Sends no control commands."""
+        from .lib.local import LocalLink, discover
+        coord = _coordinator(hass)
+        host = call.data.get("host") or coord.local_host
+        discovered = None
+        if not host:
+            discovered = await discover(coord.client.dev_id)
+            host = discovered
+        if not host:
+            return {"ok": False, "error": "robot not found by discovery; pass host"}
+        got: dict = {}
+        try:
+            key = await hass.async_add_executor_job(coord.client.local_key)
+            link = LocalLink(host, coord.client.dev_id, key, got.update)
+            run = asyncio.ensure_future(link.run())
+            for _ in range(40):
+                if got or run.done():
+                    break
+                await asyncio.sleep(0.25)
+            run.cancel()
+            await link.close()
+        except Exception as err:  # noqa: BLE001
+            return {"ok": False, "host": host, "error": f"{type(err).__name__}: {str(err)[:80]}"}
+        if got:
+            coord.local_host = host
+        return {"ok": bool(got), "host": host, "discovered": discovered, "dps": got}
+
     async def decode_capture(call: ServiceCall) -> ServiceResponse:
         """Read-only: decrypt captured Eufy-app traffic inside HA (the robot key never leaves HA)."""
         try:
@@ -120,6 +147,8 @@ def async_register(hass: HomeAssistant) -> None:
             raise HomeAssistantError(f"Decode failed ({type(err).__name__})") from None
         return {"messages": messages, "count": len(messages)}
 
+    hass.services.async_register(DOMAIN, "local_probe", local_probe, schema=vol.Schema({
+        vol.Optional("host"): cv.string}), supports_response=SupportsResponse.ONLY)
     hass.services.async_register(DOMAIN, "decode_capture", decode_capture, schema=vol.Schema({
         vol.Required("flows"): list}), supports_response=SupportsResponse.ONLY)
     hass.services.async_register(DOMAIN, "command", command, schema=vol.Schema({

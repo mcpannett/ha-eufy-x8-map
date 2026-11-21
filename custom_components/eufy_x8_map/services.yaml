@@ -96,3 +96,9 @@ decode_capture:
       required: true
       selector:
         object:
+local_probe:
+  fields:
+    host:
+      example: 192.168.1.102
+      selector:
+        text:

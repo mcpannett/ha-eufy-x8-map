@@ -1,6 +1,7 @@
 """Polling for Eufy X8 Map: fast while the robot is cleaning, slow while docked."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from datetime import timedelta
@@ -12,11 +13,12 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     ACTIVE_MAP_S, ACTIVE_POLL_S, ACTIVE_VACUUM_STATES, CONF_ACCOUNT, CONF_DEVICE_ID,
-    CONF_ALLOW_COMMANDS, CONF_RECORD_COMMANDS, CONF_VACUUM_ENTITY, DOMAIN, DPS_POLL_S, IDLE_MAP_S, IDLE_POLL_S,
+    CONF_ALLOW_COMMANDS, CONF_LOCAL_LINK, CONF_RECORD_COMMANDS, CONF_ROBOT_HOST, LOCAL_RETRY_S, CONF_VACUUM_ENTITY, DOMAIN, DPS_POLL_S, IDLE_MAP_S, IDLE_POLL_S,
     RECORD_DPS_POLL_S, RECORD_HISTORY_S, RECORD_MAX_S,
 )
 from .lib.commands import CommandRecorder, encode_command, history_entries, map_version
 from .lib.engine import Account, MapState, X8Client
+from .lib.local import LocalLink, discover
 from .lib.map_fetch import MapFetchError
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,6 +44,87 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._map_version = None
         self._guard_version = None
         self._record_started: float | None = None
+        # LAN link (milestone 2). Key lives in memory only.
+        self.local_dps: dict = {}
+        self.local_status = "off"
+        self.local_host: str | None = None
+        self.last_route: str | None = None
+        self._link: LocalLink | None = None
+        self._link_task: asyncio.Task | None = None
+
+    # --- LAN link -------------------------------------------------------------
+    @property
+    def local_enabled(self) -> bool:
+        return bool(self.entry.options.get(CONF_LOCAL_LINK))
+
+    @property
+    def local_up(self) -> bool:
+        return bool(self._link and self._link.connected)
+
+    def dp(self, key: str):
+        """Latest value: from the LAN link when it is up, else from the cloud."""
+        if self.local_up and key in self.local_dps:
+            return self.local_dps[key]
+        return self.dps.get(key, self.local_dps.get(key))
+
+    def _on_local_dps(self, dps: dict) -> None:
+        self.local_dps.update(dps)
+        if self.recording:
+            stamp = dt_util.utcnow().isoformat(timespec="seconds")
+            for dp, value in dps.items():
+                if dp == "124" and isinstance(value, str):
+                    self.recorder.add(dp, value, stamp, "local")
+        self.async_update_listeners()
+
+    def start_local(self) -> None:
+        if self.local_enabled and (self._link_task is None or self._link_task.done()):
+            self._link_task = self.entry.async_create_background_task(
+                self.hass, self._local_loop(), "eufy_x8_map local link")
+
+    async def stop_local(self) -> None:
+        task, self._link_task = self._link_task, None
+        if task:
+            task.cancel()
+        if self._link:
+            await self._link.close()
+        self._link = None
+        self.local_status = "off"
+        self.async_update_listeners()
+
+    async def _local_loop(self) -> None:
+        key: bytes | None = None
+        while self.local_enabled:
+            try:
+                if key is None:
+                    self.local_status = "getting key"
+                    key = await self.hass.async_add_executor_job(self.client.local_key)
+                host = self.entry.options.get(CONF_ROBOT_HOST) or self.local_host
+                if not host:
+                    self.local_status = "discovering"
+                    self.async_update_listeners()
+                    host = await discover(self.client.dev_id)
+                    if not host:
+                        raise ConnectionError("robot not found on the LAN (set its IP in options)")
+                self.local_host = host
+                self.local_status = "connecting"
+                self._link = LocalLink(host, self.client.dev_id, key, self._on_local_dps)
+                run = asyncio.ensure_future(self._link.run())
+                for _ in range(50):
+                    if self._link.connected or run.done():
+                        break
+                    await asyncio.sleep(0.2)
+                if self._link.connected:
+                    self.local_status = "connected"
+                    _LOGGER.info("LAN link to the robot is up")
+                    self.async_update_listeners()
+                await run
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:  # noqa: BLE001 - type/message only, never the key
+                self.local_status = f"retrying: {type(err).__name__}: {str(err)[:80]}"
+                _LOGGER.debug("LAN link: %s", self.local_status)
+            self.async_update_listeners()
+            await asyncio.sleep(LOCAL_RETRY_S)
 
     @property
     def commands_allowed(self) -> bool:
@@ -54,13 +137,31 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         if self._map_version is None:
             raise PermissionError("Map version unknown yet; wait a minute after start-up before sending commands")
         self._guard_version = self._map_version
-        await self.hass.async_add_executor_job(self.client.publish_dps, dps)
+        route = "cloud"
+        if self.local_up:
+            try:
+                await self._link.send(dps)
+                route = "local"
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.warning("LAN send failed (%s); using the cloud", type(err).__name__)
+        if route == "cloud":
+            await self.hass.async_add_executor_job(self.client.publish_dps, dps)
+        self.last_route = route
+        label = f"{label} (via {route})"
         _LOGGER.info("Sent to robot: %s", label)
         self.recorder.items.insert(0, {"dp": ",".join(dps), "time": dt_util.utcnow().isoformat(timespec="seconds"),
                                        "source": "sent", "label": label})
         del self.recorder.items[self.recorder.max_items:]
         self._last_dps = -1e9  # look for the echo straight away
         self.async_update_listeners()
+
+    async def async_clean_rooms(self, room_ids: list[int], clean_times=None) -> None:
+        from .lib.commands import DEFAULT_CLEAN_TIMES, room_clean_dps
+        from .lib.engine import parse_room_names
+        from .const import CONF_ROOM_NAMES
+        names = parse_room_names(self.entry.options.get(CONF_ROOM_NAMES))
+        dps = room_clean_dps(room_ids, clean_times or DEFAULT_CLEAN_TIMES)
+        await self.async_send(dps, "clean rooms " + ", ".join(names.get(i, f"Room {i}") for i in room_ids))
 
     async def async_command(self, method: str, data=None) -> None:
         await self.async_send({"124": encode_command(method, data)}, f"{method} {data if data is not None else ''}".strip())
