@@ -26,8 +26,8 @@ def test_bad_crc_skipped():
 
 
 def test_discovery_decode():
-    payload = b"\0\0\0\0" + encrypt(UDP_KEY, {"ip": "192.168.1.102", "gwId": "dev1", "version": "3.3"})
-    assert parse_discovery(build_frame(0, 0x13, payload))["ip"] == "192.168.1.102"
+    payload = b"\0\0\0\0" + encrypt(UDP_KEY, {"ip": "192.168.1.50", "gwId": "dev1", "version": "3.3"})
+    assert parse_discovery(build_frame(0, 0x13, payload))["ip"] == "192.168.1.50"
 
 
 def test_link_against_fake_robot():

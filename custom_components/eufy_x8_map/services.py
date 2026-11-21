@@ -217,7 +217,7 @@ def async_register(hass: HomeAssistant) -> None:
                 if not coord.commands_allowed:
                     raise ServiceValidationError("map_request sends DPS 121: turn on 'Allow commands' first")
                 value = base64.b64encode(json.dumps(
-                    {"type": "mapData", "id": call.data.get("request_id", "bfb4b641c939046390ios5"),
+                    {"type": "mapData", "id": call.data.get("request_id", coord.client.dev_id),
                      "timestamp": round(time.time() * 1000)}, separators=(",", ":")).encode()).decode()
                 await link.send({"121": value})
             await asyncio.sleep(call.data.get("seconds", 20))

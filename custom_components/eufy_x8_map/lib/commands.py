@@ -127,7 +127,7 @@ def encode_command(method: str, data: Any = None, now_ms: int | None = None) -> 
 # Spot clean:  DPS 124 {"method": "goto", "data": {"target": "spot", "cleanTimes": 1, "x": -831, "y": 274}}
 # Return home: DPS 101 true
 MAX_CLEAN_TIMES = 3
-DEFAULT_CLEAN_TIMES = 2  # Matt's choice: two passes (the app's criss-cross pattern)
+DEFAULT_CLEAN_TIMES = 2  # default: two passes (the app's criss-cross pattern)
 
 
 def _clean_times(value: Any) -> int:
@@ -168,7 +168,8 @@ def spot_clean_dps(x: int, y: int, clean_times: Any = DEFAULT_CLEAN_TIMES, now_m
     return {"124": base64.b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode()}
 
 
-def map_request_dps(request_id: str = "bfb4b641c939046390ios5", now_ms: int | None = None) -> dict[str, str]:
+def map_request_dps(request_id: str, now_ms: int | None = None) -> dict[str, str]:
+    """request_id is the robot's own device id (that is what the app sends)."""
     """DPS 121 map request, exactly as the Eufy app sends it (21 Nov capture). Makes the robot upload its live position."""
     payload = {"type": "mapData", "id": request_id, "timestamp": now_ms if now_ms is not None else round(time.time() * 1000)}
     return {"121": base64.b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode()}

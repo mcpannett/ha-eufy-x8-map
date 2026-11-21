@@ -13,7 +13,7 @@ command:
 set_alerts:
   fields:
     notify_service:
-      example: 'notify.mobile_app_matts_s25_ultra'
+      example: 'notify.mobile_app_yourphone'
       selector:
         text:
     test:
@@ -147,7 +147,7 @@ decode_capture:
 local_probe:
   fields:
     host:
-      example: 192.168.1.102
+      example: 192.168.1.50
       selector:
         text:
 local_listen:

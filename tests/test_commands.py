@@ -97,6 +97,6 @@ def test_default_is_two_passes():
 
 def test_map_request_matches_capture():
     from lib.commands import map_request_dps
-    dps = map_request_dps(now_ms=1795257537744)
+    dps = map_request_dps("dev1", now_ms=1795257537744)
     assert json.loads(base64.b64decode(dps["121"])) == {
-        "type": "mapData", "id": "bfb4b641c939046390ios5", "timestamp": 1795257537744}
+        "type": "mapData", "id": "dev1", "timestamp": 1795257537744}

@@ -318,7 +318,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
 
     @property
     def commands_allowed(self) -> bool:
-        return True  # 0.16.1: no lock. Matt removed the lock/unlock step; the map guard now alerts instead.
+        return True  # 0.16.1: no lock. the lock/unlock step was removed; the map guard now alerts instead.
 
     async def async_send(self, dps: dict, label: str) -> None:
         """Send DPS through the cloud. Only when 'Allow commands' is on. Logged and recorded."""
@@ -357,7 +357,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             return
         self._last_map_request = now
         try:
-            await self._link.send(map_request_dps())
+            await self._link.send(map_request_dps(self.client.dev_id))
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("Map request not sent: %s", type(err).__name__)
 
