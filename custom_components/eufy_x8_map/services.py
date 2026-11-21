@@ -5,7 +5,9 @@ import asyncio
 import logging
 
 import voluptuous as vol
-from homeassistant.core import HomeAssistant, ServiceCall
+import base64
+
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 import homeassistant.helpers.config_validation as cv
 
@@ -69,6 +71,22 @@ def async_register(hass: HomeAssistant) -> None:
                 _LOGGER.warning("goto not sent: %s", type(err).__name__)
         hass.async_create_background_task(later(), "eufy_x8_map goto")
 
+    async def decode_capture(call: ServiceCall) -> ServiceResponse:
+        """Read-only: decrypt captured Eufy-app traffic inside HA (the robot key never leaves HA)."""
+        try:
+            flows = [{"to_robot": bool(f["to_robot"]), "t": f.get("t"), "data": base64.b64decode(f["data"])}
+                     for f in call.data["flows"]]
+        except Exception:  # noqa: BLE001
+            raise ServiceValidationError("flows must be a list of {to_robot, t, data(base64)}") from None
+        coord = _coordinator(hass)
+        try:
+            messages = await hass.async_add_executor_job(coord.client.decode_flows, flows)
+        except Exception as err:  # noqa: BLE001
+            raise HomeAssistantError(f"Decode failed ({type(err).__name__})") from None
+        return {"messages": messages, "count": len(messages)}
+
+    hass.services.async_register(DOMAIN, "decode_capture", decode_capture, schema=vol.Schema({
+        vol.Required("flows"): list}), supports_response=SupportsResponse.ONLY)
     hass.services.async_register(DOMAIN, "command", command, schema=vol.Schema({
         vol.Required("method"): cv.string, vol.Optional("data"): vol.Any(dict, list, str, int, float, bool)}))
     hass.services.async_register(DOMAIN, "return_home", return_home, schema=vol.Schema({}))

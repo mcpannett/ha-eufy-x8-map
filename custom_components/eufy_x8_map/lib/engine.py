@@ -125,6 +125,15 @@ class X8Client:
             action="tuya.m.device.dp.publish", version="1.0",
             data={"devId": self.dev_id, "gwId": self.dev_id, "dps": _json.dumps(dps, separators=(",", ":"))}))
 
+    def decode_flows(self, flows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Decrypt captured app<->robot traffic. The local key is fetched and used here only; never returned."""
+        from .capture import decode_flows
+        key = self._retry(lambda session: session._request(  # noqa: SLF001
+            action="tuya.m.device.get", version="1.0", data={"devId": self.dev_id})).get("localKey") or ""
+        if not key:
+            raise ValueError("no local key on the account")
+        return decode_flows(flows, key)
+
     def fetch_dps(self) -> dict[str, Any]:
         """Current state DPS (15, 122, 124, 125, 142 only; never the local key)."""
         return self._retry(lambda session: pick_dps(session._request(  # noqa: SLF001

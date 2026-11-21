@@ -41,3 +41,9 @@ goto:
           min: 0
           max: 4000
           mode: box
+decode_capture:
+  fields:
+    flows:
+      required: true
+      selector:
+        object:

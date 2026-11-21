@@ -81,3 +81,11 @@ def test_wrong_key_decodes_nothing():
 def test_frame_without_version_header():
     body = enc({"dps": {"15": "Charging"}}, version_header=False)
     assert list(tuya_frames(b"xx" + frame(8, body)))[0][0] == 8
+
+
+def test_flows_then_decode_matches_direct():
+    from x8probe.capture import decode_flows, flows_from_capture
+    data = pcap(conversation())
+    flows = flows_from_capture(data)
+    assert len(flows) == 2 and {f["to_robot"] for f in flows} == {True, False}
+    assert decode_flows(flows, KEY) == decode_capture(data, KEY)

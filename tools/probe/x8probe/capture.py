@@ -131,28 +131,27 @@ def decrypt_payload(body: bytes, key: bytes) -> Any:
     return None
 
 
-def decode_capture(data: bytes, local_key: str) -> list[dict[str, Any]]:
-    """Decoded Tuya messages (app <-> robot) with DPS 124 unpacked. No key in the output."""
-    key = local_key.encode()[:16]
-    flows: dict[tuple, bytearray] = {}
-    first_time: dict[tuple, float] = {}
-    order: list[tuple] = []
+def flows_from_capture(data: bytes) -> list[dict[str, Any]]:
+    """Group the Tuya-port TCP payloads into flows: [{"to_robot", "t", "data"(bytes)}]."""
+    flows: dict[tuple, dict[str, Any]] = {}
     for chunk in tcp_streams(data):
-        flow = chunk["flow"]
-        if flow not in flows:
-            flows[flow], first_time[flow] = bytearray(), chunk["t"]
-            order.append(flow)
-        flows[flow] += chunk["data"]
+        flow = flows.setdefault(chunk["flow"], {"to_robot": chunk["to_robot"], "t": chunk["t"], "data": bytearray()})
+        flow["data"] += chunk["data"]
+    return [{**f, "data": bytes(f["data"])} for f in flows.values()]
+
+
+def decode_flows(flows: list[dict[str, Any]], local_key: str) -> list[dict[str, Any]]:
+    """Decrypt Tuya frames in each flow and unpack DPS 124. No key in the output."""
+    key = local_key.encode()[:16]
     messages: list[dict[str, Any]] = []
-    for flow in order:
-        to_robot = flow[3] == TUYA_PORT
-        for cmd, body in tuya_frames(bytes(flows[flow])):
+    for flow in flows:
+        for cmd, body in tuya_frames(flow["data"]):
             msg = decrypt_payload(body, key)
             if not isinstance(msg, dict):
                 continue
             dps = msg.get("dps") or (msg.get("data") or {}).get("dps") or {}
-            entry: dict[str, Any] = {"direction": "app->robot" if to_robot else "robot->app",
-                                     "cmd": CMD_NAMES.get(cmd, cmd), "t": msg.get("t") or first_time[flow], "dps": {}}
+            entry: dict[str, Any] = {"direction": "app->robot" if flow["to_robot"] else "robot->app",
+                                     "cmd": CMD_NAMES.get(cmd, cmd), "t": msg.get("t") or flow.get("t"), "dps": {}}
             for dp, value in dps.items():
                 decoded = None
                 if isinstance(value, str):
@@ -163,4 +162,10 @@ def decode_capture(data: bytes, local_key: str) -> list[dict[str, Any]]:
                 entry["dps"][str(dp)] = decoded if decoded is not None else value
             if entry["dps"]:
                 messages.append(entry)
+    messages.sort(key=lambda m: (m["t"] or 0))
     return messages
+
+
+def decode_capture(data: bytes, local_key: str) -> list[dict[str, Any]]:
+    """Decoded Tuya messages (app <-> robot) from a pcap/pcapng."""
+    return decode_flows(flows_from_capture(data), local_key)

@@ -116,6 +116,16 @@
           "description": "Map pixel (stored layout)."
         }
       }
+    },
+    "decode_capture": {
+      "name": "Decode capture",
+      "description": "Read-only. Decrypts captured Eufy app traffic (Tuya port 6668 flows) inside Home Assistant and returns the decoded commands. The robot's local key never leaves Home Assistant.",
+      "fields": {
+        "flows": {
+          "name": "Flows",
+          "description": "List of {to_robot, t, data (base64)} from a capture."
+        }
+      }
     }
   }
 }

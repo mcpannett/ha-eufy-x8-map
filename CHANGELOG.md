@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0 (21 Nov 2026)
+
+- **Decode capture** service (read-only, returns a response): decrypts captured Eufy-app traffic inside Home Assistant using the account session, so no password is typed anywhere and the robot's local key never leaves HA. Input is the Tuya-port flows extracted from a PCAPdroid capture.
+
 ## 0.3.2 (20 Nov 2026)
 
 - **Icon:** original light and dark brand images in `brand/` (shown by Home Assistant 2026.3+).
