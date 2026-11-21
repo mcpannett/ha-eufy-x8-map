@@ -54,14 +54,20 @@ cards:
     icon: mdi:door-open
     hide_state: true
     vertical: true
-    tap_action: &id001
+    tap_action:
       action: perform-action
       perform_action: button.press
       target:
         entity_id: button.robovac_map_clean_porch
       confirmation:
         text: Clean the Porch (2 passes)?
-    icon_tap_action: *id001
+    icon_tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_porch
+      confirmation:
+        text: Clean the Porch (2 passes)?
     color: teal
   - type: tile
     entity: button.robovac_map_clean_hallway
@@ -69,14 +75,20 @@ cards:
     icon: mdi:shoe-print
     hide_state: true
     vertical: true
-    tap_action: &id002
+    tap_action:
       action: perform-action
       perform_action: button.press
       target:
         entity_id: button.robovac_map_clean_hallway
       confirmation:
         text: Clean the Hallway (2 passes)?
-    icon_tap_action: *id002
+    icon_tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_hallway
+      confirmation:
+        text: Clean the Hallway (2 passes)?
     color: teal
   - type: tile
     entity: button.robovac_map_clean_living_room
@@ -84,14 +96,20 @@ cards:
     icon: mdi:sofa
     hide_state: true
     vertical: true
-    tap_action: &id003
+    tap_action:
       action: perform-action
       perform_action: button.press
       target:
         entity_id: button.robovac_map_clean_living_room
       confirmation:
         text: Clean the Living Room (2 passes)?
-    icon_tap_action: *id003
+    icon_tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_living_room
+      confirmation:
+        text: Clean the Living Room (2 passes)?
     color: teal
   - type: tile
     entity: button.robovac_map_clean_bathroom
@@ -99,14 +117,20 @@ cards:
     icon: mdi:shower
     hide_state: true
     vertical: true
-    tap_action: &id004
+    tap_action:
       action: perform-action
       perform_action: button.press
       target:
         entity_id: button.robovac_map_clean_bathroom
       confirmation:
         text: Clean the Bathroom (2 passes)? Check the door is open.
-    icon_tap_action: *id004
+    icon_tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_bathroom
+      confirmation:
+        text: Clean the Bathroom (2 passes)? Check the door is open.
     color: teal
   - type: tile
     entity: button.robovac_map_clean_kitchen
@@ -114,14 +138,20 @@ cards:
     icon: mdi:silverware-fork-knife
     hide_state: true
     vertical: true
-    tap_action: &id005
+    tap_action:
       action: perform-action
       perform_action: button.press
       target:
         entity_id: button.robovac_map_clean_kitchen
       confirmation:
         text: Clean the Kitchen (2 passes)?
-    icon_tap_action: *id005
+    icon_tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_kitchen
+      confirmation:
+        text: Clean the Kitchen (2 passes)?
     color: teal
   - type: tile
     entity: button.robovac_map_clean_kitchen
@@ -129,7 +159,7 @@ cards:
     icon: mdi:vector-combine
     hide_state: true
     vertical: true
-    tap_action: &id006
+    tap_action:
       action: perform-action
       perform_action: eufy_x8_map.clean_rooms
       data:
@@ -138,7 +168,15 @@ cards:
         - Kitchen
       confirmation:
         text: Clean the Hallway and Kitchen (2 passes)?
-    icon_tap_action: *id006
+    icon_tap_action:
+      action: perform-action
+      perform_action: eufy_x8_map.clean_rooms
+      data:
+        rooms:
+        - Hallway
+        - Kitchen
+      confirmation:
+        text: Clean the Hallway and Kitchen (2 passes)?
     color: teal
 - type: grid
   columns: 3
@@ -150,7 +188,7 @@ cards:
     icon: mdi:target
     hide_state: true
     vertical: true
-    tap_action: &id007
+    tap_action:
       action: perform-action
       perform_action: eufy_x8_map.spot_clean
       data:
@@ -158,7 +196,14 @@ cards:
         y: 274
       confirmation:
         text: Spot clean the Hallway?
-    icon_tap_action: *id007
+    icon_tap_action:
+      action: perform-action
+      perform_action: eufy_x8_map.spot_clean
+      data:
+        x: -831
+        y: 274
+      confirmation:
+        text: Spot clean the Hallway?
     color: purple
   - type: tile
     entity: sensor.robovac_map_robot_status
@@ -166,12 +211,16 @@ cards:
     icon: mdi:home-import-outline
     hide_state: true
     vertical: true
-    tap_action: &id008
+    tap_action:
       action: perform-action
       perform_action: eufy_x8_map.return_home
       confirmation:
         text: Send the X8 back to its dock?
-    icon_tap_action: *id008
+    icon_tap_action:
+      action: perform-action
+      perform_action: eufy_x8_map.return_home
+      confirmation:
+        text: Send the X8 back to its dock?
     color: orange
   - type: tile
     entity: button.robovac_map_refresh_map
@@ -179,12 +228,16 @@ cards:
     icon: mdi:map-search
     hide_state: true
     vertical: true
-    tap_action: &id009
+    tap_action:
       action: perform-action
       perform_action: button.press
       target:
         entity_id: button.robovac_map_refresh_map
-    icon_tap_action: *id009
+    icon_tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_refresh_map
     color: grey
 - type: grid
   columns: 3
