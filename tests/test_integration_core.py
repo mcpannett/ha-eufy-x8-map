@@ -289,3 +289,15 @@ def test_compact_padding_shifts_calibration():
     full = calibration_points(st, 3, "stored")[0]["map"]
     compact = calibration_points(st, 3, "stored", True, 4 / 3)[0]["map"]
     assert compact["x"] - full["x"] == 63 and compact["y"] == full["y"]
+
+
+def test_rename_room_text():
+    from lib.engine import format_room_names, parse_room_names, rename_room
+    text = "1=Porch, 2=Hallway, 7=Kitchen"
+    assert rename_room(text, 1, "Front Porch") == "1=Front Porch, 2=Hallway, 7=Kitchen"
+    assert rename_room(text, 4, "Living Room") == "1=Porch, 2=Hallway, 4=Living Room, 7=Kitchen"
+    assert rename_room(text, 2, "  ") == "1=Porch, 7=Kitchen"            # empty = back to 'Room N'
+    odd = rename_room(text, 7, "Kitchen, Diner=big;x")                   # separators can't break the list
+    assert parse_room_names(odd)[7] == "Kitchen Diner big x" and len(parse_room_names(odd)) == 3
+    assert parse_room_names(rename_room("", 6, "B" * 60))[6] == "B" * 40
+    assert format_room_names({2: "b", 1: "a"}) == "1=a, 2=b"

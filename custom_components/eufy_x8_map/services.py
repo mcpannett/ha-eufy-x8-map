@@ -62,6 +62,17 @@ def async_register(hass: HomeAssistant) -> None:
     async def command(call: ServiceCall) -> None:
         await _guard(_coordinator(hass).async_command(call.data["method"], call.data.get("data")))
 
+    async def rename_room(call: ServiceCall) -> None:
+        """HA-only room name (no robot command). Accepts the room number or its current name."""
+        from .text import apply_rename
+        coord = _coordinator(hass)
+        names = parse_room_names(coord.entry.options.get(CONF_ROOM_NAMES))
+        try:
+            room = resolve_rooms([call.data["room"]], names, coord.state.rooms)[0]
+        except (ValueError, IndexError) as err:
+            raise ServiceValidationError(str(err) or "Unknown room") from None
+        apply_rename(hass, coord, room, call.data["name"])
+
     async def return_home(call: ServiceCall) -> None:
         coord = _coordinator(hass)
         if coord.is_docked:
@@ -283,6 +294,8 @@ def async_register(hass: HomeAssistant) -> None:
         vol.Inclusive("pixel_x", "pixel"): vol.Coerce(float), vol.Inclusive("pixel_y", "pixel"): vol.Coerce(float),
         vol.Optional("clean_times", default=DEFAULT_CLEAN_TIMES): vol.All(vol.Coerce(int), vol.Range(min=1, max=3))}),
         cv.has_at_least_one_key("x", "pixel_x")))
+    hass.services.async_register(DOMAIN, "rename_room", rename_room, schema=vol.Schema({
+        vol.Required("room"): vol.Any(cv.string, int), vol.Required("name"): cv.string}))
     hass.services.async_register(DOMAIN, "return_home", return_home, schema=vol.Schema({}))
     hass.services.async_register(DOMAIN, "goto", goto, schema=vol.All(vol.Schema({
         vol.Inclusive("x", "robot"): vol.Coerce(int), vol.Inclusive("y", "robot"): vol.Coerce(int),

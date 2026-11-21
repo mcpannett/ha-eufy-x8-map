@@ -265,6 +265,20 @@
     "map_card_config": {
       "name": "Map card config",
       "description": "Read-only: returns a ready-made config for the Xiaomi Vacuum Map card."
+    },
+    "rename_room": {
+      "name": "Rename room",
+      "description": "Change a room's name in HA only (no robot command; the Eufy app keeps its own labels). Leave the name empty to go back to 'Room N'.",
+      "fields": {
+        "room": {
+          "name": "Room",
+          "description": "Room number, or its current name."
+        },
+        "name": {
+          "name": "New name",
+          "description": "Up to 40 characters."
+        }
+      }
     }
   }
 }

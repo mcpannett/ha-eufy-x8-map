@@ -292,3 +292,19 @@ def parse_room_names(text: str | None) -> dict[int, str]:
             if key.strip().isdigit() and name.strip():
                 names[int(key.strip())] = name.strip()[:40]
     return names
+
+
+def format_room_names(names: dict[int, str]) -> str:
+    """{1: 'Porch', 2: 'Hallway'} -> '1=Porch, 2=Hallway' (the options text, sorted by room)."""
+    return ", ".join(f"{room}={names[room]}" for room in sorted(names))
+
+
+def rename_room(text: str | None, room: int, name: str) -> str:
+    """Return the options text with one room renamed. Empty name = back to the default 'Room N'."""
+    clean = " ".join(name.replace(",", " ").replace(";", " ").replace("=", " ").split())[:40]
+    names = parse_room_names(text)
+    if clean:
+        names[room] = clean
+    else:
+        names.pop(room, None)
+    return format_room_names(names)

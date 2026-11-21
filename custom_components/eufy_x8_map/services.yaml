@@ -10,6 +10,18 @@ command:
       example: '{"target": "go", "x": 0, "y": 0}'
       selector:
         object:
+rename_room:
+  fields:
+    room:
+      required: true
+      example: '1'
+      selector:
+        text:
+    name:
+      required: true
+      example: 'Porch'
+      selector:
+        text:
 return_home:
 clean_rooms:
   fields:
