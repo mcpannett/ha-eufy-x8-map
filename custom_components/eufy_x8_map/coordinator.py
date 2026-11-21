@@ -131,8 +131,14 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         return self.dps.get(key, self.local_dps.get(key))
 
     def _sync_docked(self) -> None:
+        self.state.set_docked(self.is_docked)
+
+    @property
+    def is_docked(self) -> bool:
+        """Charging/Sleeping, or 'completed' (fully charged) when no run is under way."""
         from .const import DOCKED_STATUSES
-        self.state.set_docked(self.dp("15") in DOCKED_STATUSES)
+        status = self.dp("15")
+        return status in DOCKED_STATUSES or (status == "completed" and not self.tracker.running)
 
     def _on_local_dps(self, dps: dict) -> None:
         self._decoded = True

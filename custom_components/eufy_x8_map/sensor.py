@@ -9,7 +9,7 @@ from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfArea, UnitOfTi
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_ROOM_NAMES, DOCKED_STATUSES, DOMAIN
+from .const import CONF_ROOM_NAMES, DOMAIN
 from .coordinator import X8MapCoordinator
 from .entity import X8MapEntity
 from .lib.engine import parse_room_names
@@ -36,7 +36,7 @@ class CurrentRoomSensor(X8MapEntity, SensorEntity):
     def native_value(self) -> str | None:
         state = self.coordinator.state
         # After a restart there is no position until the robot moves; its own status still says where it is.
-        if self.coordinator.dp("15") in DOCKED_STATUSES or state.at_dock(time.monotonic()):
+        if self.coordinator.is_docked or state.at_dock(time.monotonic()):
             return "Docked"
         room = state.room_at(state.robot)
         if room is None:

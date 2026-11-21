@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.11.1 (21 Nov 2026)
+- "completed" (fully charged on the dock) now counts as docked: robot drawn on the dock, vacuum shows Docked, Room shows Docked.
+
 ## 0.11.0 (21 Nov 2026)
 - **Door rule**: link rooms to door sensors (`set_door_sensors`); any room clean skips a room while its door is closed, with a notification. If every chosen room is shut, nothing is sent.
 - **Interactive map card support**: `map_card_config` returns a ready config for the Xiaomi Vacuum Map card - tap rooms (synced with the Select <room> switches) or tap a spot. Room outlines are traced from the map.

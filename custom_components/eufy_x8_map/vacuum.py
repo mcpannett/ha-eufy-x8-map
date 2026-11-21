@@ -60,6 +60,8 @@ class X8Vacuum(X8MapEntity, StateVacuumEntity):
             return VacuumActivity.ERROR
         if status == "standby" and self.coordinator.dp("2") is False and self.coordinator.tracker.running:
             return VacuumActivity.PAUSED
+        if self.coordinator.is_docked:
+            return VacuumActivity.DOCKED
         return ACTIVITY.get(status)
 
     @property
@@ -93,7 +95,7 @@ class X8Vacuum(X8MapEntity, StateVacuumEntity):
         await self._do(self.coordinator.async_vacuum("pause"))
 
     async def async_return_to_base(self, **kwargs: Any) -> None:
-        if self.coordinator.dp("15") in ("Charging", "Sleeping"):
+        if self.coordinator.is_docked:
             raise ServiceValidationError("The robot is already docked")
         await self._do(self.coordinator.async_vacuum("home"))
 

@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, Supp
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 import homeassistant.helpers.config_validation as cv
 
-from .const import CONF_ROOM_NAMES, DOCKED_STATUSES, DOMAIN, GOTO_CLEAR_WAIT_S
+from .const import CONF_ROOM_NAMES, DOMAIN, GOTO_CLEAR_WAIT_S
 from .coordinator import X8MapCoordinator
 from .lib.commands import DEFAULT_CLEAN_TIMES, CommandRefused, resolve_rooms, room_clean_dps, spot_clean_dps
 from .lib.engine import parse_room_names
@@ -64,7 +64,7 @@ def async_register(hass: HomeAssistant) -> None:
 
     async def return_home(call: ServiceCall) -> None:
         coord = _coordinator(hass)
-        if coord.dps.get("15") in DOCKED_STATUSES:
+        if coord.is_docked:
             raise ServiceValidationError("The robot is already docked")
         await _guard(coord.async_send({"101": True}, "return_home"))
 
