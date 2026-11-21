@@ -225,7 +225,13 @@ def async_register(hass: HomeAssistant) -> None:
             "map_locked": True,
             # Keep the bar simple: play (smart: picked rooms, else everything), pause, home, fan speed.
             "append_icons": True,
-            "icons": [{"icon_id": i, "remove": True, "replace_config": True} for i in ("stop", "clean_spot", "locate")],
+            "icons": [{"icon_id": "start_cleanup", "replace_config": True, "icon": "mdi:home-floor-g",
+                       "tooltip": "Clean whole downstairs",
+                       "tap_action": {"action": "call-service", "service": "button.press",
+                                      "service_data": {"entity_id": reg.async_get_entity_id(
+                                          "button", DOMAIN, f"{dev}_clean_all")},
+                                      "confirmation": {"text": "Clean every room (2 passes)? Rooms with a closed door are skipped."}}}]
+                     + [{"icon_id": i, "remove": True, "replace_config": True} for i in ("stop", "clean_spot", "locate")],
             "tiles": [{"entity": reg.async_get_entity_id("sensor", DOMAIN, f"{dev}_robot_status"), "label": "Status",
                        "icon": "mdi:robot-vacuum"}],
             "map_modes": [
