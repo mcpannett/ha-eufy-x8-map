@@ -85,8 +85,15 @@ class X8Vacuum(X8MapEntity, StateVacuumEntity):
             raise HomeAssistantError(f"Send failed ({type(err).__name__})") from None
 
     async def async_start(self) -> None:
-        action = "resume" if self.activity == VacuumActivity.PAUSED else "start"
-        await self._do(self.coordinator.async_vacuum(action))
+        """Smart start: resume if paused; else clean the picked rooms; else every room (door rule applies)."""
+        coord = self.coordinator
+        if self.activity == VacuumActivity.PAUSED:
+            await self._do(coord.async_vacuum("resume"))
+            return
+        rooms = [r for r in coord.state.rooms if r in coord.selected_rooms] or list(coord.state.rooms)
+        if not rooms:
+            raise ServiceValidationError("No map yet")
+        await self._do(coord.async_clean_rooms(rooms))
 
     async def async_pause(self) -> None:
         await self._do(self.coordinator.async_vacuum("pause"))

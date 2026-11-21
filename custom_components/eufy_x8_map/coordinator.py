@@ -281,6 +281,8 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         dps = room_clean_dps(room_ids, clean_times or DEFAULT_CLEAN_TIMES)
         await self.async_send(dps, "clean rooms " + ", ".join(names.get(i, f"Room {i}") for i in room_ids)
                               + (f" (skipped, door closed: {skipped_names})" if skipped else ""))
+        self.selected_rooms.clear()  # picks are for one clean
+        self.async_update_listeners()
         if skipped:
             from homeassistant.components import persistent_notification
             persistent_notification.async_create(

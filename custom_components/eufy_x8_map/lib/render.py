@@ -9,9 +9,11 @@ from .engine import MapState
 BACKGROUND = (0, 0, 0, 0)          # transparent outside the house
 WALL = (176, 176, 184, 255)       # light grey: visible on dark and light dashboards
 OTHER = (150, 150, 150, 255)       # 0xFC: carpet/edge/unknown marks
-ROUTE = (255, 255, 255, 230)
+ROUTE = (255, 255, 255, 255)       # trail core: white ...
+ROUTE_EDGE = (20, 20, 20, 255)     # ... with a dark edge, so it stands out on every room colour
 ROBOT = (25, 118, 210, 255)
 DOCK = (211, 47, 47, 255)
+OUTLINE = (255, 255, 255, 255)
 ROOM_COLOURS = [(129, 199, 132), (77, 182, 172), (255, 183, 77), (121, 134, 203), (240, 98, 146),
                 (174, 213, 129), (100, 181, 246), (255, 138, 101), (149, 117, 205), (220, 231, 117)]
 
@@ -103,16 +105,34 @@ def render_png(state: MapState, scale: int = 3, room_colours: dict[int, tuple[in
                     i = (yy * w + xx) * 4
                     rgba[i:i + 4] = bytes(colour)
 
-    for piece in state.route_pixels():
-        for i in range(1, len(piece)):
-            (x0, y0), (x1, y1) = piece[i - 1], piece[i]
-            steps = max(1, int(max(abs(x1 - x0), abs(y1 - y0)) * scale))
-            for s in range(steps + 1):
-                dot(x0 + (x1 - x0) * s / steps, y0 + (y1 - y0) * s / steps, ROUTE, 0)
-    if state.dock:
-        dot(*state.dock, DOCK, 2 * scale)
-    if state.robot:
-        dot(*state.robot, ROBOT, 2 * scale)
+    def ring(px: float, py: float, colour: tuple[int, int, int, int], r_out: int, r_in: int) -> None:
+        cx, cy = int(px * scale + scale / 2), int(py * scale + scale / 2)
+        for yy in range(cy - r_out, cy + r_out + 1):
+            for xx in range(cx - r_out, cx + r_out + 1):
+                d = (xx - cx) ** 2 + (yy - cy) ** 2
+                if 0 <= xx < w and 0 <= yy < h and r_in * r_in < d <= r_out * r_out + r_out:
+                    i = (yy * w + xx) * 4
+                    rgba[i:i + 4] = bytes(colour)
+
+    def trail(colour: tuple[int, int, int, int], r: int) -> None:
+        for piece in state.route_pixels():
+            for i in range(1, len(piece)):
+                (x0, y0), (x1, y1) = piece[i - 1], piece[i]
+                steps = max(1, int(max(abs(x1 - x0), abs(y1 - y0)) * scale))
+                for s in range(steps + 1):
+                    dot(x0 + (x1 - x0) * s / steps, y0 + (y1 - y0) * s / steps, colour, r)
+
+    trail(ROUTE_EDGE, max(1, scale - 1))  # bold trail: dark edge, then a white core
+    trail(ROUTE, max(1, scale // 2))
+    if state.dock:  # base station: a red ring with a white rim, so the docked robot sits visibly inside it
+        ring(*state.dock, OUTLINE, 5 * scale, 4 * scale - 2)
+        ring(*state.dock, DOCK, 4 * scale - 1, 3 * scale)
+        if not state.docked:
+            dot(*state.dock, DOCK, scale)
+    if state.robot:  # robot: bigger blue dot with a white outline
+        r = 2 * scale + 2 if state.docked else 3 * scale
+        dot(*state.robot, OUTLINE, r + 2)
+        dot(*state.robot, ROBOT, r)
     if crop:  # trim empty space around the house so the card isn't mostly blank
         box = content_box(state)
         if box:

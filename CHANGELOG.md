@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.0 (21 Nov 2026)
+- **Smart start**: Start/▶ resumes a paused clean; otherwise cleans the rooms picked on the map; with nothing picked it cleans every room. Door rule always applies. Room picks clear after each room clean.
+- Map: bold trail (white with a dark edge), bigger outlined robot, and the base station drawn as a red ring (the docked robot sits inside it).
+- Card generator: icon bar trimmed to play, pause, home and fan speed; Status tile only.
+- Map card labels no longer offset.
+
 ## 0.13.0 (21 Nov 2026)
 - **Map size** select: Full width, Compact (4:3) or Square. A tall map is drawn smaller and centred, so a whole vac card fits on a phone screen. Calibration follows, so the interactive map card still lines up.
 

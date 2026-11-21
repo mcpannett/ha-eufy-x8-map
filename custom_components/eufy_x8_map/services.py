@@ -223,6 +223,11 @@ def async_register(hass: HomeAssistant) -> None:
             "map_source": {"camera": cam},
             "calibration_source": {"camera": True},
             "map_locked": True,
+            # Keep the bar simple: play (smart: picked rooms, else everything), pause, home, fan speed.
+            "append_icons": True,
+            "icons": [{"icon_id": i, "remove": True, "replace_config": True} for i in ("stop", "clean_spot", "locate")],
+            "tiles": [{"entity": reg.async_get_entity_id("sensor", DOMAIN, f"{dev}_robot_status"), "label": "Status",
+                       "icon": "mdi:robot-vacuum"}],
             "map_modes": [
                 {"name": "Rooms", "icon": "mdi:floor-plan", "selection_type": "ROOM", "max_selections": 10,
                  "coordinates_rounding": True,

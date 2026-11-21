@@ -77,8 +77,6 @@ class CleanSelectedButton(X8MapEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         await _clean(self.coordinator, list(self.coordinator.selected_rooms))
-        self.coordinator.selected_rooms.clear()
-        self.coordinator.async_update_listeners()
 
 
 class CleanAllButton(X8MapEntity, ButtonEntity):
