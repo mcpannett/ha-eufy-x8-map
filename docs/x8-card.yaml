@@ -1,0 +1,224 @@
+# Eufy X8 vac card - built-in Home Assistant cards only (nothing to install).
+# Dashboard > Edit > Add card > Manual, then paste everything below.
+type: vertical-stack
+cards:
+- type: picture-entity
+  entity: camera.robovac_map_map
+  camera_view: auto
+  show_name: false
+  show_state: false
+  tap_action:
+    action: more-info
+- type: grid
+  columns: 2
+  square: false
+  cards:
+  - type: tile
+    entity: sensor.robovac_map_robot_status
+    name: Status
+    tap_action:
+      action: more-info
+    icon: mdi:robot-vacuum
+  - type: tile
+    entity: sensor.robovac_map_current_room
+    name: Room
+    tap_action:
+      action: more-info
+    icon: mdi:floor-plan
+  - type: tile
+    entity: sensor.robovac_map_battery
+    name: Battery
+    tap_action:
+      action: more-info
+  - type: tile
+    entity: sensor.robovac_map_suction
+    name: Suction
+    tap_action:
+      action: more-info
+    icon: mdi:fan
+- type: conditional
+  conditions:
+  - condition: state
+    entity: switch.robovac_map_allow_commands
+    state: 'off'
+  card:
+    type: markdown
+    content: 🔒 **Controls locked.** Turn on *Allow commands* (bottom) to use the clean buttons.
+- type: grid
+  columns: 3
+  square: false
+  cards:
+  - type: tile
+    entity: button.robovac_map_clean_porch
+    name: Porch
+    icon: mdi:door-open
+    hide_state: true
+    vertical: true
+    tap_action: &id001
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_porch
+      confirmation:
+        text: Clean the Porch (2 passes)?
+    icon_tap_action: *id001
+    color: teal
+  - type: tile
+    entity: button.robovac_map_clean_hallway
+    name: Hallway
+    icon: mdi:shoe-print
+    hide_state: true
+    vertical: true
+    tap_action: &id002
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_hallway
+      confirmation:
+        text: Clean the Hallway (2 passes)?
+    icon_tap_action: *id002
+    color: teal
+  - type: tile
+    entity: button.robovac_map_clean_living_room
+    name: Living Room
+    icon: mdi:sofa
+    hide_state: true
+    vertical: true
+    tap_action: &id003
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_living_room
+      confirmation:
+        text: Clean the Living Room (2 passes)?
+    icon_tap_action: *id003
+    color: teal
+  - type: tile
+    entity: button.robovac_map_clean_bathroom
+    name: Bathroom
+    icon: mdi:shower
+    hide_state: true
+    vertical: true
+    tap_action: &id004
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_bathroom
+      confirmation:
+        text: Clean the Bathroom (2 passes)? Check the door is open.
+    icon_tap_action: *id004
+    color: teal
+  - type: tile
+    entity: button.robovac_map_clean_kitchen
+    name: Kitchen
+    icon: mdi:silverware-fork-knife
+    hide_state: true
+    vertical: true
+    tap_action: &id005
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_clean_kitchen
+      confirmation:
+        text: Clean the Kitchen (2 passes)?
+    icon_tap_action: *id005
+    color: teal
+  - type: tile
+    entity: button.robovac_map_clean_kitchen
+    name: Hall + Kitchen
+    icon: mdi:vector-combine
+    hide_state: true
+    vertical: true
+    tap_action: &id006
+      action: perform-action
+      perform_action: eufy_x8_map.clean_rooms
+      data:
+        rooms:
+        - Hallway
+        - Kitchen
+      confirmation:
+        text: Clean the Hallway and Kitchen (2 passes)?
+    icon_tap_action: *id006
+    color: teal
+- type: grid
+  columns: 3
+  square: false
+  cards:
+  - type: tile
+    entity: button.robovac_map_clean_hallway
+    name: Spot (Hallway)
+    icon: mdi:target
+    hide_state: true
+    vertical: true
+    tap_action: &id007
+      action: perform-action
+      perform_action: eufy_x8_map.spot_clean
+      data:
+        x: -831
+        y: 274
+      confirmation:
+        text: Spot clean the Hallway?
+    icon_tap_action: *id007
+    color: purple
+  - type: tile
+    entity: sensor.robovac_map_robot_status
+    name: Home
+    icon: mdi:home-import-outline
+    hide_state: true
+    vertical: true
+    tap_action: &id008
+      action: perform-action
+      perform_action: eufy_x8_map.return_home
+      confirmation:
+        text: Send the X8 back to its dock?
+    icon_tap_action: *id008
+    color: orange
+  - type: tile
+    entity: button.robovac_map_refresh_map
+    name: Refresh map
+    icon: mdi:map-search
+    hide_state: true
+    vertical: true
+    tap_action: &id009
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.robovac_map_refresh_map
+    icon_tap_action: *id009
+    color: grey
+- type: grid
+  columns: 3
+  square: false
+  cards:
+  - type: tile
+    entity: sensor.robovac_map_clean_time
+    name: Last time
+    tap_action:
+      action: more-info
+  - type: tile
+    entity: sensor.robovac_map_clean_area
+    name: Last area
+    tap_action:
+      action: more-info
+  - type: tile
+    entity: sensor.robovac_map_run_code
+    name: Run code
+    tap_action:
+      action: more-info
+    icon: mdi:alert-circle-outline
+- type: grid
+  columns: 2
+  square: false
+  cards:
+  - type: tile
+    entity: switch.robovac_map_allow_commands
+    name: Allow commands
+    icon: mdi:shield-lock-open
+    features:
+    - type: toggle
+  - type: tile
+    entity: switch.robovac_map_local_link
+    name: Local link
+    icon: mdi:lan-connect
+    features:
+    - type: toggle

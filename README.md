@@ -34,15 +34,9 @@ Phase 1–2 fetch the map from Eufy's cloud (the room layout file `lay.bin` plus
 
 ## Dashboard card
 
-```yaml
-type: picture-entity
-entity: camera.robovac_map_map
-camera_view: live
-show_name: false
-show_state: false
-```
+A ready-made vac card using only built-in cards is in [`docs/x8-card.yaml`](docs/x8-card.yaml): map, status, battery, suction, a button per room (with confirmations), Hallway + Kitchen, spot, home, refresh, last-clean stats, and the Allow commands / Local link toggles.
 
-Add an entities card with `sensor.robovac_map_current_room` and `sensor.robovac_map_robot_status` under it.
+Dashboard > Edit > Add card > Manual, paste the file. Room names and entity ids match the default setup; rename to suit.
 
 ## Phase 1 probe
 
