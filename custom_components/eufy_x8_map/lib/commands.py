@@ -127,6 +127,7 @@ def encode_command(method: str, data: Any = None, now_ms: int | None = None) -> 
 # Spot clean:  DPS 124 {"method": "goto", "data": {"target": "spot", "cleanTimes": 1, "x": -831, "y": 274}}
 # Return home: DPS 101 true
 MAX_CLEAN_TIMES = 3
+DEFAULT_CLEAN_TIMES = 2  # Matt's choice: two passes (the app's criss-cross pattern)
 
 
 def _clean_times(value: Any) -> int:
@@ -154,12 +155,12 @@ def resolve_rooms(requested: Any, names: dict[int, str], available: list[int]) -
     return ids
 
 
-def room_clean_dps(room_ids: list[int], clean_times: Any = 1, now_ms: int | None = None) -> dict[str, str]:
+def room_clean_dps(room_ids: list[int], clean_times: Any = DEFAULT_CLEAN_TIMES, now_ms: int | None = None) -> dict[str, str]:
     data = {"roomIds": [int(r) for r in room_ids], "cleanTimes": _clean_times(clean_times)}
     return {"124": encode_command("selectRoomsClean", data, now_ms)}
 
 
-def spot_clean_dps(x: int, y: int, clean_times: Any = 1, now_ms: int | None = None) -> dict[str, str]:
+def spot_clean_dps(x: int, y: int, clean_times: Any = DEFAULT_CLEAN_TIMES, now_ms: int | None = None) -> dict[str, str]:
     """Spot clean exactly as the app sends it. Only target 'spot' - plain goto stays blocked."""
     payload = {"method": "goto", "data": {"target": "spot", "cleanTimes": _clean_times(clean_times),
                                           "x": int(x), "y": int(y)},

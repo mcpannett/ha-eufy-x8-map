@@ -87,3 +87,9 @@ def test_spot_clean_matches_app_capture():
     import pytest
     with pytest.raises(Exception):
         check_method("goto")  # plain goto stays blocked
+
+
+def test_default_is_two_passes():
+    from lib.commands import room_clean_dps, spot_clean_dps
+    assert json.loads(base64.b64decode(room_clean_dps([6], now_ms=1)["124"]))["data"]["cleanTimes"] == 2
+    assert json.loads(base64.b64decode(spot_clean_dps(0, 0, now_ms=1)["124"]))["data"]["cleanTimes"] == 2

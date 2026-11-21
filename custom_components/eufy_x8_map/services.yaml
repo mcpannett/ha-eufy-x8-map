@@ -19,7 +19,7 @@ clean_rooms:
       selector:
         object:
     clean_times:
-      default: 1
+      default: 2
       selector:
         number:
           min: 1
@@ -55,7 +55,7 @@ spot_clean:
           max: 4000
           mode: box
     clean_times:
-      default: 1
+      default: 2
       selector:
         number:
           min: 1

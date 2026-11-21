@@ -137,7 +137,7 @@
         },
         "clean_times": {
           "name": "Passes",
-          "description": "How many passes, 1 to 3."
+          "description": "How many passes, 1 to 3. Default 2 (criss-cross)."
         }
       }
     },
@@ -163,7 +163,7 @@
         },
         "clean_times": {
           "name": "Passes",
-          "description": "How many passes, 1 to 3."
+          "description": "How many passes, 1 to 3. Default 2 (criss-cross)."
         }
       }
     }

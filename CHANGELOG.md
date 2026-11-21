@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.1 (21 Nov 2026)
+- `clean_rooms` and `spot_clean` default to 2 passes (criss-cross). First supervised Bathroom test passed; map unchanged.
+
 ## 0.5.0 (21 Nov 2026)
 - New service `clean_rooms`: rooms by name or number, 1-3 passes. Sends `selectRoomsClean` exactly as the Eufy app does (decoded from a capture).
 - New service `spot_clean`: x/y in robot units or map pixels; the point must be inside a room. Sends `goto` with `target: spot`, as the app does.
