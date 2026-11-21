@@ -164,6 +164,47 @@ class X8Client:
                 errors.append(f"{action}: {type(err).__name__}")
         return None, None, errors
 
+    def fetch_care_report(self, days: int = 30) -> tuple[Any, list[str]]:
+        """Latest part-wear report (DPS 116) from Tuya's cloud logs. Read-only.
+        Returns (raw 116 value or None, notes per log call tried)."""
+        from .care import consumable_hours
+        from .commands import history_entries
+        import time as _time
+        end = int(_time.time() * 1000)
+        start = end - days * 86400 * 1000
+        notes: list[str] = []
+        best: tuple[float, Any] | None = None
+        for action, version in REPORT_ACTIONS:
+            def run(session: TuyaAPISession, action: str = action, version: str = version) -> Any:
+                return session._request(action=action, version=version, data={  # noqa: SLF001
+                    "devId": self.dev_id, "dpIds": "116", "offset": 0, "limit": 20,
+                    "startTime": str(start), "endTime": str(end), "sortType": "DESC"})
+            try:
+                entries = history_entries(run(self._tuya()))
+            except TuyaAPIError as err:
+                notes.append(f"{action}: {str(err).split(':')[0]}")
+                continue
+            except Exception as err:  # noqa: BLE001
+                notes.append(f"{action}: {type(err).__name__}")
+                continue
+            hits = [e for e in entries if e["dp"] == "116" and consumable_hours(e["value"])]
+            notes.append(f"{action}: {len(entries)} entries, {len(hits)} part reports")
+            for e in hits:
+                try:
+                    t = float(e.get("t") or 0)
+                except (TypeError, ValueError):
+                    t = 0.0
+                if best is None or t > best[0]:
+                    best = (t, e["value"])
+        return (best[1] if best else None), notes
+
+
+REPORT_ACTIONS = (  # device-reported value logs first, then the operation logs
+    ("tuya.m.device.dp.report.log", "1.0"),
+    ("tuya.m.device.dp.report.log", "2.0"),
+    ("tuya.m.smart.operate.all.log", "1.0"),
+    ("tuya.m.smart.operate.log", "1.0"),
+)
 
 MAX_ROUTE_POINTS = 20_000
 ACTIVE_WINDOW_S = 90.0

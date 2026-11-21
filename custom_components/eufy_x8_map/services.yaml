@@ -20,6 +20,7 @@ set_alerts:
       default: true
       selector:
         boolean:
+care_probe:
 rename_room:
   fields:
     room:

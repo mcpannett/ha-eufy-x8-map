@@ -36,3 +36,4 @@ MAP_REQUEST_S = 30  # while cleaning, ask the robot to stream its live position 
 CONF_TOPUP_DAYS = "topup_days"   # a room is "due" when it hasn't been cleaned for this many days
 DEFAULT_TOPUP_DAYS = 7
 CONF_NOTIFY = "notify_service"   # e.g. "notify.mobile_app_matts_s25_ultra": phone alerts (with map snapshot)
+CONF_MAP_LABELS = "map_labels"    # room names drawn over the map on the card (default off)

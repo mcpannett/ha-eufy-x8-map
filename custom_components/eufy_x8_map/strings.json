@@ -125,6 +125,9 @@
       },
       "local_link": {
         "name": "Local link"
+      },
+      "map_labels": {
+        "name": "Room names on map"
       }
     },
     "select": {
@@ -319,6 +322,10 @@
           "description": "Send a test alert straight away."
         }
       }
+    },
+    "care_probe": {
+      "name": "Read part wear",
+      "description": "Read-only: fetch brush, filter and sensor wear from the cloud logs now."
     }
   }
 }

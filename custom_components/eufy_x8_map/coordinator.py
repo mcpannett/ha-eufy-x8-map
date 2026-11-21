@@ -64,6 +64,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._care_alerted: list[str] = []     # consumables already flagged as worn
         self._last_run_code = None
         self._last_care_poll = -1e9
+        self._last_care_cloud = -1e9
         self.care_raw = None                  # last good DPS 116 (part wear), kept across restarts
         self._history_store: Store = Store(hass, 1, f"{DOMAIN}.{entry.data[CONF_DEVICE_ID]}.history")
         # Offline copy of the room layout (not secret: floor plan only).
@@ -422,6 +423,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             self.state.update_frames(record, frames, now)
         await self._poll_dps(now)
         await self._poll_consumables(now)
+        await self._poll_care_cloud(now)
         active = self.state.is_active(now) or self._vacuum_active() or self.dp("15") in ("Running", "Recharge", "Locating")
         map_age = None if self.state.layout_time is None else now - self.state.layout_time
         due = map_age is None or map_age >= (ACTIVE_MAP_S if active else IDLE_MAP_S)
@@ -443,6 +445,25 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             await self._link.request_update([116, 125, 142])
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("Consumables request failed (%s)", type(err).__name__)
+
+    async def _poll_care_cloud(self, now: float) -> None:
+        """Part wear from Tuya's cloud logs: at start-up, then every 6 h. Read-only, never fatal."""
+        if now - self._last_care_cloud < 6 * 3600:
+            return
+        self._last_care_cloud = now
+        await self.async_care_from_cloud()
+
+    async def async_care_from_cloud(self) -> list[str]:
+        from .lib.care import consumables
+        try:
+            raw, notes = await self.hass.async_add_executor_job(self.client.fetch_care_report)
+        except Exception as err:  # noqa: BLE001
+            return [f"failed: {type(err).__name__}"]
+        if raw and consumables(raw) and raw != self.care_raw:
+            self.care_raw = raw
+            self._save_history()
+            self.async_update_listeners()
+        return notes
 
     async def _poll_dps(self, now: float) -> None:
         """Robot state + map version (and, when recording, app commands). Never fatal."""

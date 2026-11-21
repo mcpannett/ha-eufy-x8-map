@@ -9,7 +9,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_ALLOW_COMMANDS, CONF_LOCAL_LINK, CONF_RECORD_COMMANDS, CONF_ROOM_NAMES, DOMAIN
+from .const import CONF_ALLOW_COMMANDS, CONF_LOCAL_LINK, CONF_MAP_LABELS, CONF_RECORD_COMMANDS, CONF_ROOM_NAMES, DOMAIN
 from .lib.engine import parse_room_names
 from .coordinator import X8MapCoordinator
 from .entity import X8MapEntity
@@ -18,7 +18,7 @@ from .entity import X8MapEntity
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]
     names = parse_room_names(entry.options.get(CONF_ROOM_NAMES))
-    async_add_entities([RecordCommandsSwitch(coordinator), LocalLinkSwitch(coordinator)]
+    async_add_entities([RecordCommandsSwitch(coordinator), LocalLinkSwitch(coordinator), MapLabelsSwitch(coordinator)]
                        + [RoomSelectSwitch(coordinator, r, names.get(r, f"Room {r}")) for r in coordinator.state.rooms])
 
 
@@ -92,6 +92,31 @@ class LocalLinkSwitch(X8MapEntity, SwitchEntity):
             self.coordinator.start_local()
         else:
             await self.coordinator.stop_local()
+        self.async_write_ha_state()
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self._set(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self._set(False)
+
+
+class MapLabelsSwitch(X8MapEntity, SwitchEntity):
+    """Show room names over the map on the vac card (off = cleaner map). The card's card-mod CSS reads this."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:label-outline"
+
+    def __init__(self, coordinator: X8MapCoordinator) -> None:
+        super().__init__(coordinator, "map_labels")
+
+    @property
+    def is_on(self) -> bool:
+        return bool(self.coordinator.entry.options.get(CONF_MAP_LABELS, False))
+
+    async def _set(self, value: bool) -> None:
+        entry = self.coordinator.entry
+        self.hass.config_entries.async_update_entry(entry, options={**entry.options, CONF_MAP_LABELS: value})
         self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs: Any) -> None:

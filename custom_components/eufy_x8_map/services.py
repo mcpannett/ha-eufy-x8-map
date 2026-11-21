@@ -73,6 +73,13 @@ def async_register(hass: HomeAssistant) -> None:
         if target and call.data.get("test"):
             coord.alert("Test: Eufy X8 alerts will arrive here, with the live map.", title="Eufy X8", key="test")
 
+    async def care_probe(call: ServiceCall) -> ServiceResponse:
+        """Read-only: re-read part wear from the cloud logs now and say what each log call returned."""
+        from .lib.care import consumables
+        coord = _coordinator(hass)
+        notes = await coord.async_care_from_cloud()
+        return {"notes": notes, "parts": consumables(coord.care_raw)}
+
     async def rename_room(call: ServiceCall) -> None:
         """HA-only room name (no robot command). Accepts the room number or its current name."""
         from .text import apply_rename
@@ -307,6 +314,8 @@ def async_register(hass: HomeAssistant) -> None:
         cv.has_at_least_one_key("x", "pixel_x")))
     hass.services.async_register(DOMAIN, "set_alerts", set_alerts, schema=vol.Schema({
         vol.Optional("notify_service", default=""): cv.string, vol.Optional("test", default=True): cv.boolean}))
+    hass.services.async_register(DOMAIN, "care_probe", care_probe, schema=vol.Schema({}),
+                                 supports_response=SupportsResponse.ONLY)
     hass.services.async_register(DOMAIN, "rename_room", rename_room, schema=vol.Schema({
         vol.Required("room"): vol.Any(cv.string, int), vol.Required("name"): cv.string}))
     hass.services.async_register(DOMAIN, "return_home", return_home, schema=vol.Schema({}))

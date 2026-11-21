@@ -34,3 +34,12 @@ def test_run_log_and_summary():
     s = summary(log, now)
     assert s == {"cleans": 1, "minutes": 20, "area_m2": 7.0, "per_room": {2: 1, 7: 1}}
     assert summary(log, now, days=14)["per_room"] == {2: 1, 7: 2}
+
+
+def test_care_report_from_log_shapes():
+    from lib.care import consumable_hours
+    from lib.commands import history_entries
+    log = {"datas": [{"dpId": 116, "value": LIVE_116, "timeStamp": 1795200000},
+                     {"dpId": 104, "value": 88, "timeStamp": 1795200001}]}
+    hits = [e for e in history_entries(log) if e["dp"] == "116" and consumable_hours(e["value"])]
+    assert len(hits) == 1 and consumable_hours(hits[0]["value"])["SB"] == 81
