@@ -19,6 +19,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # 0.8.0: HA control is the point of the integration, so controls and the LAN link are on by default.
         hass.config_entries.async_update_entry(entry, options={
             **entry.options, CONF_ALLOW_COMMANDS: True, CONF_LOCAL_LINK: True, CONTROLS_DEFAULT_APPLIED: True})
+    from homeassistant.helpers import entity_registry as er
+    from .const import CONF_DEVICE_ID
+    registry = er.async_get(hass)
+    old = registry.async_get_entity_id("switch", DOMAIN, f"{entry.data[CONF_DEVICE_ID]}_allow_commands")
+    if old:  # 0.16.1: the lock/unlock switch is gone
+        registry.async_remove(old)
     coordinator = X8MapCoordinator(hass, entry)
     await coordinator.async_load_cache()
     await coordinator.async_load_history()

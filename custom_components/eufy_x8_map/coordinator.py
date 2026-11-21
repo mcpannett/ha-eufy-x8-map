@@ -64,6 +64,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._care_alerted: list[str] = []     # consumables already flagged as worn
         self._last_run_code = None
         self._last_care_poll = -1e9
+        self.care_raw = None                  # last good DPS 116 (part wear), kept across restarts
         self._history_store: Store = Store(hass, 1, f"{DOMAIN}.{entry.data[CONF_DEVICE_ID]}.history")
         # Offline copy of the room layout (not secret: floor plan only).
         self._store: Store = Store(hass, 1, f"{DOMAIN}.{entry.data[CONF_DEVICE_ID]}.layout")
@@ -77,11 +78,13 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self.last_run = data.get("last_run") or {}
         self.run_log = list(data.get("runs") or [])
         self._care_alerted = list(data.get("care_alerted") or [])
+        self.care_raw = data.get("care_raw")
 
     def _save_history(self) -> None:
         self._history_store.async_delay_save(lambda: {
             "last_cleaned": {str(k): v for k, v in self.tracker.last_cleaned.items()}, "last_run": self.last_run,
-            "runs": self.run_log, "care_alerted": self._care_alerted}, 5)
+            "runs": self.run_log, "care_alerted": self._care_alerted,
+            "care_raw": self.care_raw}, 5)
 
     @property
     def topup_days(self) -> int:
@@ -124,7 +127,11 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
                 near = f" (near {self.room_names().get(where, f'Room {where}')})" if where else ""
                 self.alert(f"The X8 can't reach a room{near}. Is a door closed?", key="unreachable")
             self._last_run_code = code
-        parts = consumables(self.dp("116"))
+        raw = self.dp("116")
+        if raw and consumables(raw) and raw != self.care_raw:
+            self.care_raw = raw
+            self._save_history()
+        parts = consumables(self.care_raw)
         worn = sorted(k for k, v in parts.items() if v["percent"] <= REPLACE_AT_PERCENT)
         new = [k for k in worn if k not in self._care_alerted]
         if new:
@@ -293,7 +300,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
 
     @property
     def commands_allowed(self) -> bool:
-        return bool(self.entry.options.get(CONF_ALLOW_COMMANDS, True))
+        return True  # 0.16.1: no lock. Matt removed the lock/unlock step; the map guard now alerts instead.
 
     async def async_send(self, dps: dict, label: str) -> None:
         """Send DPS through the cloud. Only when 'Allow commands' is on. Logged and recorded."""
@@ -433,7 +440,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             return
         self._last_care_poll = now
         try:
-            await self._link.request_update([116])
+            await self._link.request_update([116, 125, 142])
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("Consumables request failed (%s)", type(err).__name__)
 
@@ -454,17 +461,12 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             self._map_retry_at = 0.0
         if version is not None and self._guard_version is not None and version != self._guard_version \
                 and self.commands_allowed:
-            # Safety: a test command was followed by a map change. Lock commands until a person turns them back on.
-            _LOGGER.warning("Map changed after a test command (%s -> %s): commands locked", self._guard_version, version)
-            self.hass.config_entries.async_update_entry(
-                self.entry, options={**self.entry.options, CONF_ALLOW_COMMANDS: False})
-            from homeassistant.components import persistent_notification
-            persistent_notification.async_create(
-                self.hass, "The X8's saved map changed after a command from Home Assistant, so HA controls are locked. "
-                "Check the map in the Eufy app, then tap 'Unlock controls' on the vac card.",
-                title="Eufy X8: controls locked", notification_id=f"{DOMAIN}_guard")
+            # Safety net: the saved map changed soon after a command from HA. Alert (no lock) so it can be checked.
+            _LOGGER.warning("Map changed after a command from HA (%s -> %s)", self._guard_version, version)
+            self.alert("The X8's saved map changed just after a command from Home Assistant. "
+                       "Check the map in the Eufy app.", title="Eufy X8: map changed", key="guard")
             self.recorder.items.insert(0, {"dp": "125", "time": dt_util.utcnow().isoformat(timespec="seconds"),
-                                           "source": "guard", "label": f"map changed {self._guard_version} -> {version}; commands locked"})
+                                           "source": "guard", "label": f"map changed {self._guard_version} -> {version}"})
             self._guard_version = None
         if version is not None:
             self._map_version = version

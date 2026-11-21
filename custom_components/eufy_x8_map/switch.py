@@ -18,7 +18,7 @@ from .entity import X8MapEntity
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]
     names = parse_room_names(entry.options.get(CONF_ROOM_NAMES))
-    async_add_entities([RecordCommandsSwitch(coordinator), AllowCommandsSwitch(coordinator), LocalLinkSwitch(coordinator)]
+    async_add_entities([RecordCommandsSwitch(coordinator), LocalLinkSwitch(coordinator)]
                        + [RoomSelectSwitch(coordinator, r, names.get(r, f"Room {r}")) for r in coordinator.state.rooms])
 
 

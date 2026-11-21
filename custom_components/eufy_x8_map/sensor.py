@@ -247,7 +247,7 @@ class ConsumableSensor(X8MapEntity, SensorEntity):
 
     def _part(self) -> dict | None:
         from .lib.care import consumables
-        return consumables(self.coordinator.dp("116")).get(self._key)
+        return consumables(self.coordinator.care_raw).get(self._key)
 
     @property
     def native_value(self):

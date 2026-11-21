@@ -17,7 +17,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-KEEP_DPS = ("15", "122", "124", "125", "142")
+KEEP_DPS = ("15", "116", "122", "124", "125", "142")  # 116 = part wear (hours used)
 HISTORY_ACTIONS = (  # tried in order; the first that answers is used
     ("tuya.m.smart.operate.all.log", "1.0"),
     ("tuya.m.smart.operate.log", "1.0"),
