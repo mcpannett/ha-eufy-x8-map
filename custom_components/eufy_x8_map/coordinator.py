@@ -266,8 +266,35 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         from .lib.engine import parse_room_names
         from .const import CONF_ROOM_NAMES
         names = parse_room_names(self.entry.options.get(CONF_ROOM_NAMES))
+        skipped = self.closed_rooms(room_ids)
+        room_ids = [r for r in room_ids if r not in skipped]
+        skipped_names = ", ".join(names.get(r, f"Room {r}") for r in skipped)
+        if not room_ids:
+            from .lib.commands import CommandRefused
+            raise CommandRefused(f"Not cleaning: door closed ({skipped_names})")
         dps = room_clean_dps(room_ids, clean_times or DEFAULT_CLEAN_TIMES)
-        await self.async_send(dps, "clean rooms " + ", ".join(names.get(i, f"Room {i}") for i in room_ids))
+        await self.async_send(dps, "clean rooms " + ", ".join(names.get(i, f"Room {i}") for i in room_ids)
+                              + (f" (skipped, door closed: {skipped_names})" if skipped else ""))
+        if skipped:
+            from homeassistant.components import persistent_notification
+            persistent_notification.async_create(
+                self.hass, f"Skipped {skipped_names}: the door is closed. The other rooms are being cleaned.",
+                title="Eufy X8", notification_id=f"{DOMAIN}_skipped")
+
+    def door_sensors(self) -> dict[int, str]:
+        from .const import CONF_DOOR_SENSORS
+        return {int(k): v for k, v in (self.entry.options.get(CONF_DOOR_SENSORS) or {}).items()}
+
+    def closed_rooms(self, room_ids: list[int]) -> list[int]:
+        """Rooms whose door sensor says closed ('off'). Unknown/unavailable sensors never block."""
+        doors = self.door_sensors()
+        closed = []
+        for room in room_ids:
+            entity = doors.get(room)
+            state = self.hass.states.get(entity) if entity else None
+            if state is not None and state.state == "off":
+                closed.append(room)
+        return closed
 
     async def async_command(self, method: str, data=None) -> None:
         await self.async_send({"124": encode_command(method, data)}, f"{method} {data if data is not None else ''}".strip())

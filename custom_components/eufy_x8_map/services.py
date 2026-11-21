@@ -179,6 +179,62 @@ def async_register(hass: HomeAssistant) -> None:
             link.listeners.remove(listener)
         return {"heard": heard, "count": len(heard)}
 
+    async def set_door_sensors(call: ServiceCall) -> None:
+        """Map rooms to door sensors: {"Bathroom": "binary_sensor.bathroom_door"}. Empty value removes."""
+        from .const import CONF_DOOR_SENSORS
+        coord = _coordinator(hass)
+        names = parse_room_names(coord.entry.options.get(CONF_ROOM_NAMES))
+        doors = {str(k): v for k, v in coord.door_sensors().items()}
+        for room, entity in call.data["doors"].items():
+            try:
+                rid = resolve_rooms([room], names, coord.state.rooms)[0]
+            except CommandRefused as err:
+                raise ServiceValidationError(str(err)) from None
+            if entity:
+                if not str(entity).startswith("binary_sensor.") or hass.states.get(entity) is None:
+                    raise ServiceValidationError(f"{entity} is not a binary sensor in this HA")
+                doors[str(rid)] = entity
+            else:
+                doors.pop(str(rid), None)
+        hass.config_entries.async_update_entry(coord.entry, options={**coord.entry.options, CONF_DOOR_SENSORS: doors})
+
+    async def map_card_config(call: ServiceCall) -> ServiceResponse:
+        """Read-only: a ready-made config for the Xiaomi Vacuum Map card (tap rooms, tap a spot)."""
+        from homeassistant.helpers import entity_registry as er
+        from .lib.render import room_shapes
+        coord = _coordinator(hass)
+        reg = er.async_get(hass)
+        dev = coord.client.dev_id
+        vac = reg.async_get_entity_id("vacuum", DOMAIN, f"{dev}_vacuum")
+        cam = reg.async_get_entity_id("camera", DOMAIN, f"{dev}_map")
+        names = parse_room_names(coord.entry.options.get(CONF_ROOM_NAMES))
+        rooms = []
+        for rid, shape in sorted(room_shapes(coord.state).items()):
+            item = {"id": str(rid), "outline": shape["outline"],
+                    "label": {"text": names.get(rid, f"Room {rid}"), "x": shape["centre"][0], "y": shape["centre"][1], "offset_y": 30}}
+            sw = reg.async_get_entity_id("switch", DOMAIN, f"{dev}_select_room_{rid}")
+            if sw:
+                item["state_entity"] = sw
+            rooms.append(item)
+        card = {
+            "type": "custom:xiaomi-vacuum-map-card",
+            "entity": vac,
+            "vacuum_platform": "default",
+            "map_source": {"camera": cam},
+            "calibration_source": {"camera": True},
+            "map_locked": True,
+            "map_modes": [
+                {"name": "Rooms", "icon": "mdi:floor-plan", "selection_type": "ROOM", "max_selections": 10,
+                 "coordinates_rounding": True,
+                 "service_call_schema": {"service": f"{DOMAIN}.clean_rooms", "service_data": {"rooms": "[[selection]]"}},
+                 "predefined_selections": rooms},
+                {"name": "Spot", "icon": "mdi:target", "selection_type": "MANUAL_POINT", "coordinates_rounding": True,
+                 "service_call_schema": {"service": f"{DOMAIN}.spot_clean",
+                                         "service_data": {"x": "[[point_x]]", "y": "[[point_y]]"}}},
+            ],
+        }
+        return {"card": card}
+
     async def decode_capture(call: ServiceCall) -> ServiceResponse:
         """Read-only: decrypt captured Eufy-app traffic inside HA (the robot key never leaves HA)."""
         try:
@@ -200,6 +256,10 @@ def async_register(hass: HomeAssistant) -> None:
         vol.Optional("update_dps", default=[116, 121, 125, 142]): [vol.Coerce(int)],
         vol.Optional("map_request", default=False): cv.boolean,
         vol.Optional("request_id"): cv.string}), supports_response=SupportsResponse.ONLY)
+    hass.services.async_register(DOMAIN, "set_door_sensors", set_door_sensors, schema=vol.Schema({
+        vol.Required("doors"): {cv.string: vol.Any(cv.string, None)}}))
+    hass.services.async_register(DOMAIN, "map_card_config", map_card_config, schema=vol.Schema({}),
+                                 supports_response=SupportsResponse.ONLY)
     hass.services.async_register(DOMAIN, "decode_capture", decode_capture, schema=vol.Schema({
         vol.Required("flows"): list}), supports_response=SupportsResponse.ONLY)
     hass.services.async_register(DOMAIN, "command", command, schema=vol.Schema({

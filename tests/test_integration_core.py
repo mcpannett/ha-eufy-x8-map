@@ -187,3 +187,23 @@ def test_calibration_matches_render_dot():
     box = content_box(st)
     dock_img = ((40 - box[1]) * 3 + 1.5, (50 - box[0]) * 3 + 1.5)  # transposed
     assert (pts[0]["map"]["x"], pts[0]["map"]["y"]) == dock_img
+
+
+def test_room_shapes_cover_room():
+    from types import SimpleNamespace
+    from lib.engine import MapState
+    from lib.render import room_shapes
+    W, H = 100, 80
+    px = bytearray([0xFF]) * (W * H)
+    for y in range(30, 50):
+        for x in range(40, 70):
+            px[y * W + x] = 2 << 2
+    st = MapState()
+    st.layout = SimpleNamespace(width=W, height=H, pixels=bytes(px), header={"origin": (-500, -400)})
+    shape = room_shapes(st)[2]
+    xs = [p[0] for p in shape["outline"]]
+    ys = [p[1] for p in shape["outline"]]
+    assert min(xs) == 40 * 10 - 500 and max(xs) == 70 * 10 - 500
+    assert min(ys) == 30 * 10 - 400 and max(ys) <= 51 * 10 - 400
+    cx, cy = shape["centre"]
+    assert 40 * 10 - 500 < cx < 70 * 10 - 500 and 30 * 10 - 400 < cy < 50 * 10 - 400

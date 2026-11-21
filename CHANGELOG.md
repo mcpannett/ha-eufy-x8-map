@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.0 (21 Nov 2026)
+- **Door rule**: link rooms to door sensors (`set_door_sensors`); any room clean skips a room while its door is closed, with a notification. If every chosen room is shut, nothing is sent.
+- **Interactive map card support**: `map_card_config` returns a ready config for the Xiaomi Vacuum Map card - tap rooms (synced with the Select <room> switches) or tap a spot. Room outlines are traced from the map.
+
 ## 0.10.0 (21 Nov 2026) - next milestone, part 1
 - **Vacuum entity** (`vacuum.robovac_map`): start, pause, stop, return home, locate, spot-here, suction - all over the LAN. Formats: return home from the app capture; start/pause/locate/spot from damacus/robovac's X8 (T2262) model.
 - **Area cleaning**: rooms are offered to HA as segments, so after mapping them to HA areas (vacuum entity settings) `vacuum.clean_area` and voice ("clean the kitchen") work. Two passes.

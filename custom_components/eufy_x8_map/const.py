@@ -29,3 +29,4 @@ LOCAL_RETRY_S = 30                      # wait before reconnecting the LAN link
 CONF_LOCAL_KEY = "local_key"            # robot LAN key, stored in the config entry (Matt approved 21 Nov 2026); never logged or shown
 CONTROLS_DEFAULT_APPLIED = "controls_default_applied"  # one-off: Allow commands + Local link on by default (0.8.0)
 SUCTION_LEVELS = ["Quiet", "Standard", "Turbo", "Max"]  # DPS 102 (damacus/robovac T2262)
+CONF_DOOR_SENSORS = "door_sensors"      # {"6": "binary_sensor.bathroom_door"}: skip a room while its door is closed

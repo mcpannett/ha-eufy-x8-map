@@ -49,7 +49,7 @@ class CleanRoomButton(X8MapEntity, ButtonEntity):
             raise ServiceValidationError("This room is no longer on the map")
         try:
             await self.coordinator.async_clean_rooms([self._room])
-        except PermissionError as err:
+        except (PermissionError, ValueError) as err:
             raise ServiceValidationError(str(err)) from None
         except Exception as err:  # noqa: BLE001
             raise HomeAssistantError(f"Send failed ({type(err).__name__})") from None

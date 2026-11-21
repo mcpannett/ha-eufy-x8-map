@@ -234,6 +234,20 @@
           "description": "Id field for the map request (default: the one from the capture)."
         }
       }
+    },
+    "set_door_sensors": {
+      "name": "Set door sensors",
+      "description": "Link rooms to door sensors. A room is skipped while its door is closed.",
+      "fields": {
+        "doors": {
+          "name": "Doors",
+          "description": "Room name or number mapped to a binary sensor; empty removes the link."
+        }
+      }
+    },
+    "map_card_config": {
+      "name": "Map card config",
+      "description": "Read-only: returns a ready-made config for the Xiaomi Vacuum Map card."
     }
   }
 }

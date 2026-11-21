@@ -132,3 +132,36 @@ def calibration_points(state: MapState, scale: int = 3, orientation: str = "stor
             ix, iy = iy, ix
         points.append({"vacuum": {"x": pose[0], "y": pose[1]}, "map": {"x": round(ix, 1), "y": round(iy, 1)}})
     return points
+
+
+def room_shapes(state: MapState, band: int = 3) -> dict[int, dict]:
+    """Per room: an outline polygon and a label point, in robot pose units (for map cards).
+
+    The outline follows the room's left and right edges in horizontal bands of `band` pixels,
+    which is close enough for tapping a room on the map.
+    """
+    lay = state.layout
+    if lay is None or "origin" not in getattr(lay, "header", {}):
+        return {}
+    spans: dict[int, list[tuple[int, int, int]]] = {}
+    for y0 in range(0, lay.height, band):
+        found: dict[int, list[int]] = {}
+        for y in range(y0, min(y0 + band, lay.height)):
+            row = lay.pixels[y * lay.width:(y + 1) * lay.width]
+            for x, b in enumerate(row):
+                room = b >> 2
+                if room <= 31:
+                    f = found.setdefault(room, [x, x])
+                    f[0], f[1] = min(f[0], x), max(f[1], x)
+        for room, (lo, hi) in found.items():
+            spans.setdefault(room, []).append((y0, lo, hi))
+    shapes: dict[int, dict] = {}
+    for room, rows in spans.items():
+        if len(rows) < 2:
+            continue
+        left = [(lo, y) for y, lo, _ in rows] + [(rows[-1][1], rows[-1][0] + band)]
+        right = [(hi + 1, y + band) for y, _, hi in reversed(rows)] + [(rows[0][2] + 1, rows[0][0])]
+        poly = [state.to_pose((x, y)) for x, y in left + right]
+        mid_y, lo, hi = rows[len(rows) // 2]
+        shapes[room] = {"outline": [list(p) for p in poly], "centre": list(state.to_pose(((lo + hi) / 2, mid_y + band / 2)))}
+    return shapes

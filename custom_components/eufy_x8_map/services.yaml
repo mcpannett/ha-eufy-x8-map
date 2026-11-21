@@ -120,3 +120,11 @@ local_listen:
     request_id:
       selector:
         text:
+set_door_sensors:
+  fields:
+    doors:
+      required: true
+      example: '{"Bathroom": "binary_sensor.bathroom_door"}'
+      selector:
+        object:
+map_card_config:
