@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.14.1 (21 Nov 2026)
+- Room tap areas for the map card are now traced from each room's own pixels, so neighbouring rooms (e.g. Hallway/Bathroom doorway) no longer overlap.
+- Room picks are no longer restored after a restart (they only ever apply to the next clean).
+- Root cause of "picked Kitchen, it cleaned Hallway" (on 0.13): picks from an earlier run stayed ticked, so tapping Kitchen un-ticked it. 0.14 clears picks after every clean.
+
 ## 0.14.0 (21 Nov 2026)
 - **Smart start**: Start/▶ resumes a paused clean; otherwise cleans the rooms picked on the map; with nothing picked it cleans every room. Door rule always applies. Room picks clear after each room clean.
 - Map: bold trail (white with a dark edge), bigger outlined robot, and the base station drawn as a red ring (the docked robot sits inside it).

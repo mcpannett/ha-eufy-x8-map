@@ -203,10 +203,56 @@ def test_room_shapes_cover_room():
     shape = room_shapes(st)[2]
     xs = [p[0] for p in shape["outline"]]
     ys = [p[1] for p in shape["outline"]]
-    assert min(xs) == 40 * 10 - 500 and max(xs) == 70 * 10 - 500
-    assert min(ys) == 30 * 10 - 400 and max(ys) <= 51 * 10 - 400
+    assert min(xs) == 40 * 10 - 500 and max(xs) == 69 * 10 - 500
+    assert min(ys) == 30 * 10 - 400 and max(ys) == 49 * 10 - 400
     cx, cy = shape["centre"]
     assert 40 * 10 - 500 < cx < 70 * 10 - 500 and 30 * 10 - 400 < cy < 50 * 10 - 400
+
+
+def _inside(p, poly):
+    x, y = p
+    c = False
+    for i in range(len(poly)):
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % len(poly)]
+        if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
+            c = not c
+    return c
+
+
+def test_adjacent_l_shaped_rooms_do_not_overlap():
+    from types import SimpleNamespace
+    from lib.engine import MapState
+    from lib.render import room_shapes
+    W, H = 60, 50
+    px = bytearray([0xFF]) * (W * H)
+    for y in range(5, 45):           # room 4: an L
+        for x in range(5, 25):
+            px[y * W + x] = 4 << 2
+    for y in range(30, 45):
+        for x in range(25, 50):
+            px[y * W + x] = 4 << 2
+    for y in range(5, 29):           # room 6 tucked into the L's corner, touching it
+        for x in range(26, 50):
+            px[y * W + x] = 6 << 2
+    st = MapState()
+    st.layout = SimpleNamespace(width=W, height=H, pixels=bytes(px), header={"origin": (0, 0)})
+    shapes = room_shapes(st)
+    for room in (4, 6):
+        poly = shapes[room]["outline"]
+        assert _inside(shapes[room]["centre"], poly)
+        other = shapes[10 - room]["outline"]
+        assert not _inside(shapes[room]["centre"], other)
+    # sample every room pixel: a tap there lands in its own room only
+    wrong = 0
+    for y in range(H):
+        for x in range(W):
+            r = px[y * W + x] >> 2
+            if r in (4, 6):
+                hits = [k for k in (4, 6) if _inside((x * 10 + 0.1, y * 10 + 0.1), shapes[k]["outline"])]
+                if hits and hits != [r]:
+                    wrong += 1
+    assert wrong == 0
 
 
 def test_landscape_calibration_matches_dock():

@@ -197,34 +197,95 @@ def calibration_points(state: MapState, scale: int = 3, orientation: str = "stor
     return points
 
 
-def room_shapes(state: MapState, band: int = 3) -> dict[int, dict]:
-    """Per room: an outline polygon and a label point, in robot pose units (for map cards).
+def _trace(cells: set[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Outer boundary of a 4-connected pixel blob (Moore-neighbour tracing), clockwise, pixel centres."""
+    start = min(cells, key=lambda c: (c[1], c[0]))
+    dirs = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+    path = [start]
+    cur, back = start, 4  # we "came from" the left
+    for _ in range(len(cells) * 8 + 8):
+        for k in range(8):
+            d = (back + 1 + k) % 8
+            nxt = (cur[0] + dirs[d][0], cur[1] + dirs[d][1])
+            if nxt in cells:
+                back = (d + 4) % 8
+                cur = nxt
+                break
+        else:
+            return path  # single pixel
+        if cur == start:
+            break
+        path.append(cur)
+    return path
 
-    The outline follows the room's left and right edges in horizontal bands of `band` pixels,
-    which is close enough for tapping a room on the map.
+
+def _simplify(points: list[tuple[float, float]], eps: float) -> list[tuple[float, float]]:
+    """Ramer-Douglas-Peucker on a closed loop."""
+    if len(points) < 4:
+        return points
+
+    def rdp(pts: list[tuple[float, float]]) -> list[tuple[float, float]]:
+        (x0, y0), (x1, y1) = pts[0], pts[-1]
+        dx, dy = x1 - x0, y1 - y0
+        norm = (dx * dx + dy * dy) ** 0.5 or 1.0
+        best, idx = 0.0, 0
+        for i in range(1, len(pts) - 1):
+            d = abs(dy * (pts[i][0] - x0) - dx * (pts[i][1] - y0)) / norm
+            if d > best:
+                best, idx = d, i
+        if best <= eps:
+            return [pts[0], pts[-1]]
+        return rdp(pts[:idx + 1])[:-1] + rdp(pts[idx:])
+
+    far = max(range(len(points)), key=lambda i: (points[i][0] - points[0][0]) ** 2 + (points[i][1] - points[0][1]) ** 2)
+    a = rdp(points[:far + 1])
+    b = rdp(points[far:] + [points[0]])
+    return a[:-1] + b[:-1]
+
+
+def room_shapes(state: MapState, eps: float = 1.0) -> dict[int, dict]:
+    """Per room: its exact outline (traced edge, simplified) and a label point, in robot pose units.
+
+    Outlines follow the room's own pixels, so neighbouring rooms don't overlap and a tap
+    near a doorway picks the room it actually lands in.
     """
     lay = state.layout
     if lay is None or "origin" not in getattr(lay, "header", {}):
         return {}
-    spans: dict[int, list[tuple[int, int, int]]] = {}
-    for y0 in range(0, lay.height, band):
-        found: dict[int, list[int]] = {}
-        for y in range(y0, min(y0 + band, lay.height)):
-            row = lay.pixels[y * lay.width:(y + 1) * lay.width]
-            for x, b in enumerate(row):
-                room = b >> 2
-                if room <= 31:
-                    f = found.setdefault(room, [x, x])
-                    f[0], f[1] = min(f[0], x), max(f[1], x)
-        for room, (lo, hi) in found.items():
-            spans.setdefault(room, []).append((y0, lo, hi))
+    by_room: dict[int, set[tuple[int, int]]] = {}
+    for y in range(lay.height):
+        row = lay.pixels[y * lay.width:(y + 1) * lay.width]
+        for x, b in enumerate(row):
+            if (b >> 2) <= 31:
+                by_room.setdefault(b >> 2, set()).add((x, y))
     shapes: dict[int, dict] = {}
-    for room, rows in spans.items():
-        if len(rows) < 2:
+    for room, cells in by_room.items():
+        # largest 4-connected part (ignore stray specks)
+        seen: set[tuple[int, int]] = set()
+        best: set[tuple[int, int]] = set()
+        for c in cells:
+            if c in seen:
+                continue
+            blob, stack = set(), [c]
+            while stack:
+                p = stack.pop()
+                if p in seen or p not in cells:
+                    continue
+                seen.add(p)
+                blob.add(p)
+                stack += [(p[0] + 1, p[1]), (p[0] - 1, p[1]), (p[0], p[1] + 1), (p[0], p[1] - 1)]
+            if len(blob) > len(best):
+                best = blob
+        if len(best) < 4:
             continue
-        left = [(lo, y) for y, lo, _ in rows] + [(rows[-1][1], rows[-1][0] + band)]
-        right = [(hi + 1, y + band) for y, _, hi in reversed(rows)] + [(rows[0][2] + 1, rows[0][0])]
-        poly = [state.to_pose((x, y)) for x, y in left + right]
-        mid_y, lo, hi = rows[len(rows) // 2]
-        shapes[room] = {"outline": [list(p) for p in poly], "centre": list(state.to_pose(((lo + hi) / 2, mid_y + band / 2)))}
+        outline = _simplify([(float(x), float(y)) for x, y in _trace(best)], eps)
+        # label: the room pixel deepest inside (farthest from any non-room pixel), sampled on a coarse grid
+        def depth(p: tuple[int, int]) -> int:
+            r = 0
+            while all((p[0] + dx, p[1] + dy) in best for dx, dy in ((r, 0), (-r, 0), (0, r), (0, -r))):
+                r += 1
+            return r
+        label = max(sorted(best)[::7] or sorted(best), key=depth)
+        shapes[room] = {"outline": [list(state.to_pose(p)) for p in outline],
+                        "centre": list(state.to_pose((float(label[0]), float(label[1]))))}
     return shapes

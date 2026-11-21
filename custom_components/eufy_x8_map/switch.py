@@ -8,7 +8,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import CONF_ALLOW_COMMANDS, CONF_LOCAL_LINK, CONF_RECORD_COMMANDS, CONF_ROOM_NAMES, DOMAIN
 from .lib.engine import parse_room_names
@@ -102,8 +101,8 @@ class LocalLinkSwitch(X8MapEntity, SwitchEntity):
         await self._set(False)
 
 
-class RoomSelectSwitch(X8MapEntity, SwitchEntity, RestoreEntity):
-    """Tick a room for 'Clean selected rooms'. Only a selection in HA; sends nothing to the robot."""
+class RoomSelectSwitch(X8MapEntity, SwitchEntity):
+    """Tick a room for the next clean. HA-side only (sends nothing to the robot); cleared after each clean and on restart."""
 
     _attr_icon = "mdi:checkbox-marked-circle-outline"
 
@@ -112,12 +111,6 @@ class RoomSelectSwitch(X8MapEntity, SwitchEntity, RestoreEntity):
         self._room = room
         self._attr_translation_key = None
         self._attr_name = f"Select {name}"
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        last = await self.async_get_last_state()
-        if last and last.state == "on":
-            self.coordinator.selected_rooms.add(self._room)
 
     @property
     def is_on(self) -> bool:
