@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.2 (21 Nov 2026)
+- **Live position keeps streaming**: while the robot is cleaning or returning, HA repeats the Eufy app's map request (DPS 121, exact capture format) every 30 s over the LAN, so the dot, trail and Room stay live without the app open. Confirmed on the robot: the route went from 3 to 17 points within seconds of a request.
+- Fast polling starts the moment the robot reports it's cleaning.
+
 ## 0.14.1 (21 Nov 2026)
 - Room tap areas for the map card are now traced from each room's own pixels, so neighbouring rooms (e.g. Hallway/Bathroom doorway) no longer overlap.
 - Room picks are no longer restored after a restart (they only ever apply to the next clean).

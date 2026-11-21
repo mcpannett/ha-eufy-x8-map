@@ -166,3 +166,9 @@ def spot_clean_dps(x: int, y: int, clean_times: Any = DEFAULT_CLEAN_TIMES, now_m
                                           "x": int(x), "y": int(y)},
                "timestamp": now_ms if now_ms is not None else round(time.time() * 1000)}
     return {"124": base64.b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode()}
+
+
+def map_request_dps(request_id: str = "bfb4b641c939046390ios5", now_ms: int | None = None) -> dict[str, str]:
+    """DPS 121 map request, exactly as the Eufy app sends it (21 Nov capture). Makes the robot upload its live position."""
+    payload = {"type": "mapData", "id": request_id, "timestamp": now_ms if now_ms is not None else round(time.time() * 1000)}
+    return {"121": base64.b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode()}

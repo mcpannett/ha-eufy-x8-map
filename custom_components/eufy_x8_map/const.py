@@ -32,3 +32,4 @@ SUCTION_LEVELS = ["Quiet", "Standard", "Turbo", "Max"]  # DPS 102 (damacus/robov
 CONF_DOOR_SENSORS = "door_sensors"      # {"6": "binary_sensor.bathroom_door"}: skip a room while its door is closed
 CONF_MAP_SIZE = "map_size"  # "full" | "compact" (4:3) | "square": pads a tall map so cards show it smaller
 MAP_SIZES = {"full": 0.0, "compact": 4 / 3, "square": 1.0}
+MAP_REQUEST_S = 30  # while cleaning, ask the robot to stream its live position (the app does this ~every 60 s)

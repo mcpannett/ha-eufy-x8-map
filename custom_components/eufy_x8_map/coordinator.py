@@ -56,6 +56,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._link: LocalLink | None = None
         self._link_task: asyncio.Task | None = None
         self._decoded = False
+        self._last_map_request = -1e9
         self.selected_rooms: set[int] = set()  # rooms ticked on the card for "Clean selected"
         self.tracker = RunTracker()
         self.last_run: dict = {}
@@ -142,7 +143,10 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
 
     def _on_local_dps(self, dps: dict) -> None:
         self._decoded = True
+        started = dps.get("15") in ("Running", "Locating") and self.local_dps.get("15") not in ("Running", "Locating")
         self.local_dps.update(dps)
+        if started:  # switch to fast polling (and position streaming) straight away
+            self.hass.async_create_task(self.async_request_refresh())
         self._sync_docked()
         self._track()
         if self.recording:
@@ -249,6 +253,22 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._last_dps = -1e9  # look for the echo straight away
         self.async_update_listeners()
 
+    async def _keep_position_streaming(self, now: float) -> None:
+        """While the robot is cleaning, repeat the app's map request so the live position keeps updating.
+
+        Read-only for the robot (it just uploads its position); sent over the LAN only, not logged as a command."""
+        from .const import MAP_REQUEST_S
+        from .lib.commands import map_request_dps
+        if not (self.local_up and self.commands_allowed and self.dp("15") in ("Running", "Locating", "Recharge")):
+            return
+        if now - self._last_map_request < MAP_REQUEST_S:
+            return
+        self._last_map_request = now
+        try:
+            await self._link.send(map_request_dps())
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Map request not sent: %s", type(err).__name__)
+
     async def async_vacuum(self, action: str) -> None:
         """Basic controls. Formats: DPS 101 from the app capture; 2/5/103 from damacus/robovac's X8 (T2262) model."""
         payloads = {
@@ -337,6 +357,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             await self._refresh_map(now)
         self._sync_docked()
         self._track()
+        await self._keep_position_streaming(now)
         self.update_interval = timedelta(seconds=ACTIVE_POLL_S if active else IDLE_POLL_S)
         return self.state
 

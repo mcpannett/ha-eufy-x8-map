@@ -93,3 +93,10 @@ def test_default_is_two_passes():
     from lib.commands import room_clean_dps, spot_clean_dps
     assert json.loads(base64.b64decode(room_clean_dps([6], now_ms=1)["124"]))["data"]["cleanTimes"] == 2
     assert json.loads(base64.b64decode(spot_clean_dps(0, 0, now_ms=1)["124"]))["data"]["cleanTimes"] == 2
+
+
+def test_map_request_matches_capture():
+    from lib.commands import map_request_dps
+    dps = map_request_dps(now_ms=1795257537744)
+    assert json.loads(base64.b64decode(dps["121"])) == {
+        "type": "mapData", "id": "bfb4b641c939046390ios5", "timestamp": 1795257537744}
