@@ -3,7 +3,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.vacuum import Segment, StateVacuumEntity, VacuumActivity, VacuumEntityFeature
+from homeassistant.components.vacuum import StateVacuumEntity, VacuumActivity, VacuumEntityFeature
+
+try:  # area cleaning (segments) arrived in newer Home Assistant releases
+    from homeassistant.components.vacuum import Segment
+    AREA = VacuumEntityFeature.CLEAN_AREA
+except ImportError:  # older HA: everything else still works
+    Segment = None  # type: ignore[assignment]
+    AREA = VacuumEntityFeature(0)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
@@ -37,7 +44,7 @@ class X8Vacuum(X8MapEntity, StateVacuumEntity):
     _attr_supported_features = (
         VacuumEntityFeature.STATE | VacuumEntityFeature.START | VacuumEntityFeature.PAUSE | VacuumEntityFeature.STOP
         | VacuumEntityFeature.RETURN_HOME | VacuumEntityFeature.FAN_SPEED | VacuumEntityFeature.LOCATE
-        | VacuumEntityFeature.CLEAN_SPOT | VacuumEntityFeature.CLEAN_AREA
+        | VacuumEntityFeature.CLEAN_SPOT | AREA
     )
 
     def __init__(self, coordinator: X8MapCoordinator) -> None:
@@ -99,7 +106,7 @@ class X8Vacuum(X8MapEntity, StateVacuumEntity):
     async def async_set_fan_speed(self, fan_speed: str, **kwargs: Any) -> None:
         await self._do(self.coordinator.async_set_suction(fan_speed))
 
-    async def async_get_segments(self) -> list[Segment]:
+    async def async_get_segments(self) -> list:
         names = parse_room_names(self.coordinator.entry.options.get(CONF_ROOM_NAMES))
         return [Segment(id=str(r), name=names.get(r, f"Room {r}")) for r in self.coordinator.state.rooms]
 
