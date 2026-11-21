@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.1 (21 Nov 2026)
+- The robot's LAN key is now stored in the config entry (owner-approved), so the local link starts with no cloud. It's fetched once, then only again if the robot stops accepting it. Never logged or shown.
+
 ## 0.7.0 (21 Nov 2026) - milestone 3, part 1
 - Offline map: the room layout is saved in HA after each download and loaded at start-up, so the map, rooms and buttons work when the Eufy cloud is down. Camera shows `map_source` and `cloud_error`.
 - Cloud outages no longer stop the integration when a saved map or the LAN link is available.

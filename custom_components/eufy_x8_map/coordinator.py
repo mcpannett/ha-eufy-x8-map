@@ -15,7 +15,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     ACTIVE_MAP_S, ACTIVE_POLL_S, ACTIVE_VACUUM_STATES, CONF_ACCOUNT, CONF_DEVICE_ID,
-    CONF_ALLOW_COMMANDS, CONF_LOCAL_LINK, CONF_RECORD_COMMANDS, CONF_ROBOT_HOST, LOCAL_RETRY_S, CONF_VACUUM_ENTITY, DOMAIN, DPS_POLL_S, IDLE_MAP_S, IDLE_POLL_S,
+    CONF_ALLOW_COMMANDS, CONF_LOCAL_KEY, CONF_LOCAL_LINK, CONF_RECORD_COMMANDS, CONF_ROBOT_HOST, LOCAL_RETRY_S, CONF_VACUUM_ENTITY, DOMAIN, DPS_POLL_S, IDLE_MAP_S, IDLE_POLL_S,
     RECORD_DPS_POLL_S, RECORD_HISTORY_S, RECORD_MAX_S,
 )
 from .lib.commands import CommandRecorder, encode_command, history_entries, map_version
@@ -54,6 +54,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self.last_route: str | None = None
         self._link: LocalLink | None = None
         self._link_task: asyncio.Task | None = None
+        self._decoded = False
         # Offline copy of the room layout (not secret: floor plan only).
         self._store: Store = Store(hass, 1, f"{DOMAIN}.{entry.data[CONF_DEVICE_ID]}.layout")
         self._cached_raw: bytes | None = None
@@ -88,6 +89,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         return self.dps.get(key, self.local_dps.get(key))
 
     def _on_local_dps(self, dps: dict) -> None:
+        self._decoded = True
         self.local_dps.update(dps)
         if self.recording:
             stamp = dt_util.utcnow().isoformat(timespec="seconds")
@@ -111,13 +113,25 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self.local_status = "off"
         self.async_update_listeners()
 
+    async def async_get_key(self, refresh: bool = False) -> bytes:
+        """LAN key: stored in the config entry so start-up needs no cloud. Refetched only when it stops working."""
+        stored = self.entry.data.get(CONF_LOCAL_KEY)
+        if stored and not refresh:
+            return stored.encode()[:16]
+        key = await self.hass.async_add_executor_job(self.client.local_key)
+        if key.decode() != stored:
+            self.hass.config_entries.async_update_entry(self.entry, data={**self.entry.data, CONF_LOCAL_KEY: key.decode()})
+        return key
+
     async def _local_loop(self) -> None:
         key: bytes | None = None
+        refresh = False
         while self.local_enabled:
             try:
-                if key is None:
+                if key is None or refresh:
                     self.local_status = "getting key"
-                    key = await self.hass.async_add_executor_job(self.client.local_key)
+                    key = await self.async_get_key(refresh)
+                    refresh = False
                 host = self.entry.options.get(CONF_ROBOT_HOST) or self.local_host
                 if not host:
                     self.local_status = "discovering"
@@ -137,7 +151,13 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
                     self.local_status = "connected"
                     _LOGGER.info("LAN link to the robot is up")
                     self.async_update_listeners()
-                await run
+                was_connected, self._decoded = self._link.connected, False
+                try:
+                    await run
+                finally:
+                    # Connected but nothing ever decoded: the key has probably changed (e.g. robot re-paired).
+                    if was_connected and not self._decoded:
+                        refresh = True
             except asyncio.CancelledError:
                 raise
             except Exception as err:  # noqa: BLE001 - type/message only, never the key

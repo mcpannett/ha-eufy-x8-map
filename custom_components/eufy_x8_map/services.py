@@ -136,7 +136,7 @@ def async_register(hass: HomeAssistant) -> None:
             return {"ok": False, "error": "robot not found by discovery; pass host"}
         got: dict = {}
         try:
-            key = await hass.async_add_executor_job(coord.client.local_key)
+            key = await coord.async_get_key()
             link = LocalLink(host, coord.client.dev_id, key, got.update)
             run = asyncio.ensure_future(link.run())
             for _ in range(40):
