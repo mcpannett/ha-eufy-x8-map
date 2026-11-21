@@ -102,3 +102,21 @@ local_probe:
       example: 192.168.1.102
       selector:
         text:
+local_listen:
+  fields:
+    seconds:
+      default: 20
+      selector:
+        number:
+          min: 2
+          max: 40
+    update_dps:
+      selector:
+        object:
+    map_request:
+      default: false
+      selector:
+        boolean:
+    request_id:
+      selector:
+        text:

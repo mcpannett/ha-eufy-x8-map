@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import time
 
 import voluptuous as vol
 import base64
@@ -35,6 +37,22 @@ async def _guard(coro) -> None:
         raise ServiceValidationError(str(err)) from None
     except Exception as err:  # noqa: BLE001 - may carry URLs; type only
         raise HomeAssistantError(f"Send failed ({type(err).__name__})") from None
+
+
+def _short(value, depth: int = 0):
+    """Trim long strings (map blobs) for the response; decode base64 JSON where possible."""
+    if isinstance(value, dict):
+        return {str(k): _short(v, depth + 1) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_short(v, depth + 1) for v in value[:20]]
+    if isinstance(value, str):
+        if len(value) >= 8:
+            try:
+                return {"b64json": _short(json.loads(base64.b64decode(value, validate=True).decode()), depth + 1)}
+            except Exception:  # noqa: BLE001
+                pass
+        return value if len(value) <= 300 else {"len": len(value), "head": value[:200]}
+    return value
 
 
 def async_register(hass: HomeAssistant) -> None:
@@ -133,6 +151,34 @@ def async_register(hass: HomeAssistant) -> None:
             coord.local_host = host
         return {"ok": bool(got), "host": host, "discovered": discovered, "dps": got}
 
+    async def local_listen(call: ServiceCall) -> ServiceResponse:
+        """Research (milestone 3): ask the robot to re-report DPS over the LAN and, optionally, send the
+        app's own map request (DPS 121, format from the 21 Nov capture). Returns everything heard."""
+        coord = _coordinator(hass)
+        link = coord._link  # noqa: SLF001
+        if not coord.local_up or link is None:
+            raise ServiceValidationError("Turn on 'Local link' first (status must be connected)")
+        heard: list = []
+        start = time.monotonic()
+
+        def listener(cmd: int, msg: dict) -> None:
+            heard.append({"s": round(time.monotonic() - start, 1), "cmd": cmd, "msg": _short(msg)})
+        link.listeners.append(listener)
+        try:
+            if call.data.get("update_dps"):
+                await link.request_update(call.data["update_dps"])
+            if call.data.get("map_request"):
+                if not coord.commands_allowed:
+                    raise ServiceValidationError("map_request sends DPS 121: turn on 'Allow commands' first")
+                value = base64.b64encode(json.dumps(
+                    {"type": "mapData", "id": call.data.get("request_id", "bfb4b641c939046390ios5"),
+                     "timestamp": round(time.time() * 1000)}, separators=(",", ":")).encode()).decode()
+                await link.send({"121": value})
+            await asyncio.sleep(call.data.get("seconds", 20))
+        finally:
+            link.listeners.remove(listener)
+        return {"heard": heard, "count": len(heard)}
+
     async def decode_capture(call: ServiceCall) -> ServiceResponse:
         """Read-only: decrypt captured Eufy-app traffic inside HA (the robot key never leaves HA)."""
         try:
@@ -149,6 +195,11 @@ def async_register(hass: HomeAssistant) -> None:
 
     hass.services.async_register(DOMAIN, "local_probe", local_probe, schema=vol.Schema({
         vol.Optional("host"): cv.string}), supports_response=SupportsResponse.ONLY)
+    hass.services.async_register(DOMAIN, "local_listen", local_listen, schema=vol.Schema({
+        vol.Optional("seconds", default=20): vol.All(vol.Coerce(int), vol.Range(min=2, max=40)),
+        vol.Optional("update_dps", default=[116, 121, 125, 142]): [vol.Coerce(int)],
+        vol.Optional("map_request", default=False): cv.boolean,
+        vol.Optional("request_id"): cv.string}), supports_response=SupportsResponse.ONLY)
     hass.services.async_register(DOMAIN, "decode_capture", decode_capture, schema=vol.Schema({
         vol.Required("flows"): list}), supports_response=SupportsResponse.ONLY)
     hass.services.async_register(DOMAIN, "command", command, schema=vol.Schema({

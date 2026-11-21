@@ -201,6 +201,28 @@
           "description": "Robot IP to try (optional)."
         }
       }
+    },
+    "local_listen": {
+      "name": "Local listen (research)",
+      "description": "Ask the robot to re-report values over the LAN and list what it sends back. Optionally sends the app's map request (needs Allow commands).",
+      "fields": {
+        "seconds": {
+          "name": "Seconds",
+          "description": "How long to listen."
+        },
+        "update_dps": {
+          "name": "DPS to re-report",
+          "description": "List of DPS numbers."
+        },
+        "map_request": {
+          "name": "Send map request",
+          "description": "Send the app's DPS 121 map request."
+        },
+        "request_id": {
+          "name": "Request id",
+          "description": "Id field for the map request (default: the one from the capture)."
+        }
+      }
     }
   }
 }

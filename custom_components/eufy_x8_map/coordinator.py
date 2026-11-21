@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import time
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -18,6 +20,7 @@ from .const import (
 )
 from .lib.commands import CommandRecorder, encode_command, history_entries, map_version
 from .lib.engine import Account, MapState, X8Client
+from .lib.x8map import decode_any
 from .lib.local import LocalLink, discover
 from .lib.map_fetch import MapFetchError
 
@@ -51,6 +54,23 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self.last_route: str | None = None
         self._link: LocalLink | None = None
         self._link_task: asyncio.Task | None = None
+        # Offline copy of the room layout (not secret: floor plan only).
+        self._store: Store = Store(hass, 1, f"{DOMAIN}.{entry.data[CONF_DEVICE_ID]}.layout")
+        self._cached_raw: bytes | None = None
+        self.map_source: str | None = None
+        self.cloud_error: str | None = None
+
+    async def async_load_cache(self) -> None:
+        """Load the saved layout so the map works even if the cloud is down at start-up."""
+        try:
+            data = await self._store.async_load()
+            if data and data.get("lay"):
+                raw = base64.b64decode(data["lay"])
+                self.state.update_layout(decode_any(raw), -1e9)  # stale on purpose: refresh when possible
+                self._cached_raw = raw
+                self.map_source = "saved copy"
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Saved map unreadable (%s); waiting for the cloud", type(err).__name__)
 
     # --- LAN link -------------------------------------------------------------
     @property
@@ -180,8 +200,13 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         try:
             record, frames = await self.hass.async_add_executor_job(self.client.fetch_frames)
         except Exception as err:  # noqa: BLE001 - library errors can carry signed URLs; report the type only
-            raise UpdateFailed(f"Eufy cloud read failed ({type(err).__name__})") from None
-        self.state.update_frames(record, frames, now)
+            self.cloud_error = type(err).__name__
+            if self.state.layout is None and not self.local_up:
+                raise UpdateFailed(f"Eufy cloud read failed ({type(err).__name__})") from None
+            # Cloud down: keep going on the saved map and the LAN link.
+        else:
+            self.cloud_error = None
+            self.state.update_frames(record, frames, now)
         await self._poll_dps(now)
         active = self.state.is_active(now) or self._vacuum_active()
         map_age = None if self.state.layout_time is None else now - self.state.layout_time
@@ -249,13 +274,18 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
     async def _refresh_map(self, now: float) -> None:
         """Map failures never stop the integration: the position keeps working and the reason is shown."""
         try:
-            layout = await self.hass.async_add_executor_job(self.client.fetch_layout)
+            raw = await self.hass.async_add_executor_job(self.client.fetch_layout_raw)
+            layout = decode_any(raw)
         except MapFetchError as err:  # our own messages: no URLs, tokens or ids
             error = str(err)
         except Exception as err:  # noqa: BLE001 - other errors may carry URLs; type only
             error = type(err).__name__
         else:
             self.state.update_layout(layout, now)
+            self.map_source = "cloud"
+            if raw != self._cached_raw:
+                self._cached_raw = raw
+                await self._store.async_save({"lay": base64.b64encode(raw).decode()})
             if self.map_error:
                 _LOGGER.info("Map download working again")
             self.map_error = None

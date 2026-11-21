@@ -50,6 +50,8 @@ class X8MapCamera(X8MapEntity, Camera):
             "dock_pixel": state.dock,
             "map_format": lay.fmt if lay else None,
             "map_error": self.coordinator.map_error,
+            "map_source": self.coordinator.map_source,
+            "cloud_error": self.coordinator.cloud_error,
         }
 
     @callback

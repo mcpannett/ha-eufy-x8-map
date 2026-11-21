@@ -103,12 +103,17 @@ class X8Client:
             return fn(self._tuya())
 
     def fetch_layout(self) -> AnyLayout:
-        def run(session: TuyaAPISession) -> AnyLayout:
+        return decode_any(self.fetch_layout_raw())
+
+    def fetch_layout_raw(self) -> bytes:
+        """The robot's saved room layout file (kept by HA as an offline copy)."""
+        def run(session: TuyaAPISession) -> bytes:
             storage = Storage(session, self.dev_id)
             code, body = storage.fetch(f"{storage.root}/layout/lay.bin")
             if code != 200 or not body:
                 raise ConnectionError(f"map download failed (HTTP {code})")
-            return decode_any(body)
+            decode_any(body)  # validate before anyone caches it
+            return body
         return self._retry(run)
 
     def fetch_frames(self) -> tuple[int, list[str]]:

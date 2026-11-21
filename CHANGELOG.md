@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0 (21 Nov 2026) - milestone 3, part 1
+- Offline map: the room layout is saved in HA after each download and loaded at start-up, so the map, rooms and buttons work when the Eufy cloud is down. Camera shows `map_source` and `cloud_error`.
+- Cloud outages no longer stop the integration when a saved map or the LAN link is available.
+- `local_listen` research service: asks the robot to re-report DPS over the LAN and, optionally, sends the app's DPS 121 map request, listing everything the robot sends back.
+
 ## 0.6.1 (21 Nov 2026)
 - New local sensors: Clean time (DPS 109), Clean area (DPS 110), Run code (DPS 137, diagnostic; 24 = room unreachable, seen with a closed door).
 - Tested on the robot over the LAN: Hallway room clean, Hallway spot clean, Hallway + Kitchen multi-room. Map unchanged after each.

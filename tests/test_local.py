@@ -68,3 +68,38 @@ def test_link_against_fake_robot():
         server.close()
 
     asyncio.run(main())
+
+
+def test_update_dps_and_listener():
+    from lib.local import UPDATE_DPS
+
+    async def main():
+        seen = []
+
+        async def robot(reader, writer):
+            buf = b""
+            while True:
+                data = await reader.read(4096)
+                if not data:
+                    return
+                frames, buf = split_frames(buf + data)
+                for seq, cmd, body in frames:
+                    if cmd == UPDATE_DPS:
+                        assert not body.startswith(b"3.3")
+                        assert decrypt_payload(body, KEY) == {"dpId": [125]}
+                        writer.write(build_frame(0, STATUS, b"\0\0\0\0" + HEADER_33 + encrypt(KEY, {"dps": {"125": "v"}})))
+                        await writer.drain()
+
+        server = await asyncio.start_server(robot, "127.0.0.1", 0)
+        link = LocalLink("127.0.0.1", "dev1", KEY, lambda d: None)
+        link.listeners.append(lambda cmd, msg: seen.append((cmd, msg)))
+        task = asyncio.ensure_future(link.run(server.sockets[0].getsockname()[1]))
+        await asyncio.sleep(0.1)
+        await link.request_update([125])
+        await asyncio.sleep(0.1)
+        assert (STATUS, {"dps": {"125": "v"}}) in seen
+        task.cancel()
+        await link.close()
+        server.close()
+
+    asyncio.run(main())

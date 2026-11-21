@@ -28,7 +28,7 @@ _LOGGER = logging.getLogger(__name__)
 
 PORT = 6668
 DISCOVERY_PORT = 6667
-CONTROL, STATUS, HEART_BEAT, DP_QUERY = 7, 8, 9, 10
+CONTROL, STATUS, HEART_BEAT, DP_QUERY, UPDATE_DPS = 7, 8, 9, 10, 18
 NO_HEADER = {HEART_BEAT, DP_QUERY, 16, 18}
 HEADER_33 = b"3.3" + b"\0" * 12
 UDP_KEY = hashlib.md5(b"yGAdlopoPVldABfn").digest()  # Tuya's published broadcast key, not a secret
@@ -135,6 +135,7 @@ class LocalLink:
         self._acks: dict[int, asyncio.Future] = {}
         self.connected = False
         self.last_seen: float | None = None
+        self.listeners: list[Callable[[int, dict[str, Any]], None]] = []
 
     def _next(self) -> int:
         self._seq = (self._seq + 1) & 0xFFFFFFFF
@@ -177,6 +178,8 @@ class LocalLink:
             dps = msg.get("dps") or (msg.get("data") or {}).get("dps")
             if isinstance(dps, dict) and dps:
                 self._on_dps({str(k): v for k, v in dps.items()})
+            for listener in list(self.listeners):
+                listener(cmd, msg)
 
     async def _heartbeat(self) -> None:
         while True:
@@ -196,6 +199,10 @@ class LocalLink:
         code = await asyncio.wait_for(ack, timeout)
         if code and code != b"\0\0\0\0":
             raise ConnectionError(f"robot refused (code {int.from_bytes(code, 'big')})")
+
+    async def request_update(self, dp_ids: list[int]) -> None:
+        """Ask the robot to re-report these DPS (Tuya UPDATEDPS; read-only)."""
+        await self._write(UPDATE_DPS, {"dpId": [int(d) for d in dp_ids]})
 
     async def close(self) -> None:
         self.connected = False
