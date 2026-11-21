@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0 (21 Nov 2026)
+- **Suction level** select (Quiet / Standard / Turbo / Max, DPS 102 - same values as the robovac integration).
+- Robot is drawn on the dock whenever it reports Charging/Sleeping (the cloud position stops before it arrives).
+- Allow commands and Local link are now **on by default** (applied once to existing installs). The map guard still locks controls if the saved map changes, and now raises a notification.
+- Vac card updated: suction picker, unlock tile only when locked; run code, refresh and connection toggles removed.
+
 ## 0.7.1 (21 Nov 2026)
 - The robot's LAN key is now stored in the config entry (owner-approved), so the local link starts with no cloud. It's fetched once, then only again if the robot stops accepting it. Never logged or shown.
 

@@ -99,6 +99,11 @@
       "local_link": {
         "name": "Local link"
       }
+    },
+    "select": {
+      "suction_level": {
+        "name": "Suction level"
+      }
     }
   },
   "services": {

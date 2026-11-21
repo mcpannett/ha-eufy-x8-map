@@ -138,3 +138,17 @@ def test_room_names_and_app_orientation():
     stored, app = render_png(st, scale=1), render_png(st, scale=1, orientation="app")
     size = lambda png: (int.from_bytes(png[16:20], "big"), int.from_bytes(png[20:24], "big"))
     assert size(stored) == (40, 30) and size(app) == (30, 40)
+
+
+def test_docked_robot_drawn_on_dock():
+    from lib.engine import MapState
+    from types import SimpleNamespace
+    st = MapState()
+    st.layout = SimpleNamespace(header={"origin": (-2330, -650)}, width=287, height=171, pixels=b"")
+    st.poses = [(-1000, -100)]
+    assert st.robot != st.dock
+    v = st.version
+    st.set_docked(True)
+    assert st.robot == st.dock == (233.0, 65.0) and st.version == v + 1
+    st.set_docked(False)
+    assert st.robot == st.to_pixel((-1000, -100))

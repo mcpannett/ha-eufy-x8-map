@@ -27,3 +27,5 @@ CONF_LOCAL_LINK = "local_link"          # LAN link to the robot (status + comman
 CONF_ROBOT_HOST = "robot_host"          # optional fixed IP; otherwise found by UDP discovery
 LOCAL_RETRY_S = 30                      # wait before reconnecting the LAN link
 CONF_LOCAL_KEY = "local_key"            # robot LAN key, stored in the config entry (Matt approved 21 Nov 2026); never logged or shown
+CONTROLS_DEFAULT_APPLIED = "controls_default_applied"  # one-off: Allow commands + Local link on by default (0.8.0)
+SUCTION_LEVELS = ["Quiet", "Standard", "Turbo", "Max"]  # DPS 102 (damacus/robovac T2262)

@@ -180,6 +180,12 @@ class MapState:
     last_frames: tuple[str, ...] = ()
     last_change: float | None = None  # monotonic time the frames last changed
     version: int = 0  # bumps whenever something drawable changes
+    docked: bool = False  # robot reports it is on the dock: draw it there (cloud frames stop before it arrives)
+
+    def set_docked(self, docked: bool) -> None:
+        if docked != self.docked:
+            self.docked = docked
+            self.version += 1
 
     def update_layout(self, layout: AnyLayout, now: float) -> None:
         if self.layout is None or layout.pixels != self.layout.pixels or layout.header != self.layout.header:
@@ -226,6 +232,8 @@ class MapState:
 
     @property
     def robot(self) -> tuple[float, float] | None:
+        if self.docked and self.dock is not None:
+            return self.dock
         return self.to_pixel(self.poses[-1]) if self.poses else None
 
     @property

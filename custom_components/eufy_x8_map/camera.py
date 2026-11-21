@@ -30,7 +30,7 @@ class X8MapCamera(X8MapEntity, Camera):
     async def async_camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
         state = self.coordinator.state
         orientation = self.coordinator.entry.options.get(CONF_ORIENTATION, "app")
-        key = (state.version, orientation)
+        key = (state.version, orientation, state.docked)
         if key != self._png_version:
             self._png = await self.hass.async_add_executor_job(render_png, state, 3, None, orientation)
             self._png_version = key

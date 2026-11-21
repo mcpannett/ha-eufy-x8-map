@@ -6,15 +6,19 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
-from .const import DOMAIN
+from .const import CONF_ALLOW_COMMANDS, CONF_LOCAL_LINK, CONTROLS_DEFAULT_APPLIED, DOMAIN
 from .coordinator import X8MapCoordinator
 from .services import async_register
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
-PLATFORMS = [Platform.BUTTON, Platform.CAMERA, Platform.SENSOR, Platform.SWITCH]
+PLATFORMS = [Platform.BUTTON, Platform.CAMERA, Platform.SELECT, Platform.SENSOR, Platform.SWITCH]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    if not entry.options.get(CONTROLS_DEFAULT_APPLIED):
+        # 0.8.0: HA control is the point of the integration, so controls and the LAN link are on by default.
+        hass.config_entries.async_update_entry(entry, options={
+            **entry.options, CONF_ALLOW_COMMANDS: True, CONF_LOCAL_LINK: True, CONTROLS_DEFAULT_APPLIED: True})
     coordinator = X8MapCoordinator(hass, entry)
     await coordinator.async_load_cache()
     await coordinator.async_config_entry_first_refresh()

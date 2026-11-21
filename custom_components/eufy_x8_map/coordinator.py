@@ -76,7 +76,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
     # --- LAN link -------------------------------------------------------------
     @property
     def local_enabled(self) -> bool:
-        return bool(self.entry.options.get(CONF_LOCAL_LINK))
+        return bool(self.entry.options.get(CONF_LOCAL_LINK, True))
 
     @property
     def local_up(self) -> bool:
@@ -88,9 +88,14 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             return self.local_dps[key]
         return self.dps.get(key, self.local_dps.get(key))
 
+    def _sync_docked(self) -> None:
+        from .const import DOCKED_STATUSES
+        self.state.set_docked(self.dp("15") in DOCKED_STATUSES)
+
     def _on_local_dps(self, dps: dict) -> None:
         self._decoded = True
         self.local_dps.update(dps)
+        self._sync_docked()
         if self.recording:
             stamp = dt_util.utcnow().isoformat(timespec="seconds")
             for dp, value in dps.items():
@@ -168,7 +173,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
 
     @property
     def commands_allowed(self) -> bool:
-        return bool(self.entry.options.get(CONF_ALLOW_COMMANDS))
+        return bool(self.entry.options.get(CONF_ALLOW_COMMANDS, True))
 
     async def async_send(self, dps: dict, label: str) -> None:
         """Send DPS through the cloud. Only when 'Allow commands' is on. Logged and recorded."""
@@ -194,6 +199,12 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         del self.recorder.items[self.recorder.max_items:]
         self._last_dps = -1e9  # look for the echo straight away
         self.async_update_listeners()
+
+    async def async_set_suction(self, level: str) -> None:
+        from .const import SUCTION_LEVELS
+        if level not in SUCTION_LEVELS:
+            raise ValueError(f"unknown suction level {level}")
+        await self.async_send({"102": level}, f"suction {level}")
 
     async def async_clean_rooms(self, room_ids: list[int], clean_times=None) -> None:
         from .lib.commands import DEFAULT_CLEAN_TIMES, room_clean_dps
@@ -234,6 +245,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         if (self.force_map or due) and now >= self._map_retry_at:
             self.force_map = False
             await self._refresh_map(now)
+        self._sync_docked()
         self.update_interval = timedelta(seconds=ACTIVE_POLL_S if active else IDLE_POLL_S)
         return self.state
 
@@ -258,6 +270,11 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             _LOGGER.warning("Map changed after a test command (%s -> %s): commands locked", self._guard_version, version)
             self.hass.config_entries.async_update_entry(
                 self.entry, options={**self.entry.options, CONF_ALLOW_COMMANDS: False})
+            from homeassistant.components import persistent_notification
+            persistent_notification.async_create(
+                self.hass, "The X8's saved map changed after a command from Home Assistant, so HA controls are locked. "
+                "Check the map in the Eufy app, then tap 'Unlock controls' on the vac card.",
+                title="Eufy X8: controls locked", notification_id=f"{DOMAIN}_guard")
             self.recorder.items.insert(0, {"dp": "125", "time": dt_util.utcnow().isoformat(timespec="seconds"),
                                            "source": "guard", "label": f"map changed {self._guard_version} -> {version}; commands locked"})
             self._guard_version = None
