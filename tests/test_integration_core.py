@@ -207,3 +207,22 @@ def test_room_shapes_cover_room():
     assert min(ys) == 30 * 10 - 400 and max(ys) <= 51 * 10 - 400
     cx, cy = shape["centre"]
     assert 40 * 10 - 500 < cx < 70 * 10 - 500 and 30 * 10 - 400 < cy < 50 * 10 - 400
+
+
+def test_landscape_calibration_matches_dock():
+    from types import SimpleNamespace
+    from lib.engine import MapState
+    from lib.render import calibration_points, content_box
+    W, H = 100, 80
+    px = bytearray([0xFF]) * (W * H)
+    for y in range(30, 50):
+        for x in range(40, 70):
+            px[y * W + x] = 2 << 2
+    st = MapState()
+    st.layout = SimpleNamespace(width=W, height=H, pixels=bytes(px), header={"origin": (-500, -400)})
+    x0, y0, x1, y1 = content_box(st)
+    sx, sy = (50 - x0) * 3 + 1.5, (40 - y0) * 3 + 1.5
+    r = calibration_points(st, 3, "landscape_right")[0]["map"]
+    left = calibration_points(st, 3, "landscape_left")[0]["map"]
+    assert (r["x"], r["y"]) == ((x1 - x0) * 3 - sx, sy)
+    assert (left["x"], left["y"]) == (sx, (y1 - y0) * 3 - sy)

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.12.0 (21 Nov 2026)
+- **Map layout** select (and option): As in the Eufy app (tall), Sideways right/left (wide - fits a phone screen), or As stored. Calibration points follow the layout, so the interactive map card keeps working.
+
 ## 0.11.2 (21 Nov 2026)
 - Paused runs show as **Paused** (not Idle) and a run isn't counted as finished until the robot is back on the dock; Start after a pause sends resume.
 - Tested on the robot: locate, whole-house start, pause, return home (all over the LAN).

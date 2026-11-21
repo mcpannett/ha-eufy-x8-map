@@ -79,6 +79,8 @@ class EufyX8MapOptionsFlow(OptionsFlow):
             vol.Optional(CONF_ORIENTATION, default=opts.get(CONF_ORIENTATION, "app")): selector.SelectSelector(
                 selector.SelectSelectorConfig(options=[
                     selector.SelectOptionDict(value="app", label="Match the Eufy app"),
+                    selector.SelectOptionDict(value="landscape_right", label="App view turned sideways (Kitchen on the right)"),
+                    selector.SelectOptionDict(value="landscape_left", label="App view turned sideways (Kitchen on the left)"),
                     selector.SelectOptionDict(value="stored", label="As stored by the robot")])),
             vol.Optional(CONF_ROBOT_HOST, default=opts.get(CONF_ROBOT_HOST, "")): str,
         })

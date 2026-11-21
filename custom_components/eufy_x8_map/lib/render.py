@@ -111,7 +111,21 @@ def render_png(state: MapState, scale: int = 3, room_colours: dict[int, tuple[in
                 j = (x * h + y) * 4
                 out[j:j + 4] = row[x * 4:x * 4 + 4]
         return _png(h, w, out)
+    if orientation in ("landscape_right", "landscape_left"):
+        # The app's view turned on its side (wide, fits a phone better). On the stored grid that is a flip.
+        out = bytearray(len(rgba))
+        stride = w * 4
+        for y in range(h):
+            src_y = y if orientation == "landscape_right" else h - 1 - y
+            row = rgba[src_y * stride:(src_y + 1) * stride]
+            if orientation == "landscape_right":
+                row = b"".join(row[x * 4:x * 4 + 4] for x in range(w - 1, -1, -1))
+            out[y * stride:(y + 1) * stride] = row
+        return _png(w, h, out)
     return _png(w, h, rgba)
+
+
+ORIENTATIONS = ("app", "landscape_right", "landscape_left", "stored")
 
 
 def calibration_points(state: MapState, scale: int = 3, orientation: str = "stored", crop: bool = True) -> list[dict] | None:
@@ -119,17 +133,22 @@ def calibration_points(state: MapState, scale: int = 3, orientation: str = "stor
     lay = state.layout
     if lay is None or "origin" not in getattr(lay, "header", {}):
         return None
-    x0, y0 = (0, 0)
+    x0, y0, x1, y1 = 0, 0, lay.width, lay.height
     if crop:
         box = content_box(state)
         if box:
-            x0, y0 = box[0], box[1]
+            x0, y0, x1, y1 = box
+    w, h = (x1 - x0) * scale, (y1 - y0) * scale
     points = []
     for pose in ((0, 0), (1000, 0), (0, 1000)):
         px, py = state.to_pixel(pose)
         ix, iy = (px - x0) * scale + scale / 2, (py - y0) * scale + scale / 2
         if orientation == "app":
             ix, iy = iy, ix
+        elif orientation == "landscape_right":
+            ix = w - ix
+        elif orientation == "landscape_left":
+            iy = h - iy
         points.append({"vacuum": {"x": pose[0], "y": pose[1]}, "map": {"x": round(ix, 1), "y": round(iy, 1)}})
     return points
 

@@ -109,6 +109,15 @@
     "select": {
       "suction_level": {
         "name": "Suction level"
+      },
+      "map_layout": {
+        "name": "Map layout",
+        "state": {
+          "app": "As in the Eufy app",
+          "landscape_right": "Sideways (right)",
+          "landscape_left": "Sideways (left)",
+          "stored": "As stored"
+        }
       }
     }
   },
