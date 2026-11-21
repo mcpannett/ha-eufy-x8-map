@@ -89,3 +89,9 @@ def test_flows_then_decode_matches_direct():
     flows = flows_from_capture(data)
     assert len(flows) == 2 and {f["to_robot"] for f in flows} == {True, False}
     assert decode_flows(flows, KEY) == decode_capture(data, KEY)
+
+
+def test_robot_frame_with_return_code_and_version_header():
+    from x8probe.capture import decrypt_payload
+    body = b"\x00\x00\x00\x00" + enc({"dps": {"124": "x", "15": "Running"}})
+    assert decrypt_payload(body, KEY.encode()) == {"dps": {"124": "x", "15": "Running"}}

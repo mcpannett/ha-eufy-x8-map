@@ -115,8 +115,13 @@ def tuya_frames(stream: bytes) -> Iterator[tuple[int, bytes]]:
 
 
 def decrypt_payload(body: bytes, key: bytes) -> Any:
-    """Decrypt a v3.3 payload (optionally behind '3.3' + 12 bytes, or a 4-byte return code)."""
-    for candidate in (body[15:] if body[:3] == b"3.3" else None, body[4:], body):
+    """Decrypt a v3.3 payload: optional 4-byte return code, optional '3.3' + 12-byte header, AES-ECB body."""
+    # Robot->app frames start with a 4-byte return code, then "3.3" + 12 bytes, then the ciphertext.
+    candidates = []
+    for off in (0, 4):
+        if body[off:off + 3] == b"3.3":
+            candidates.append(body[off + 15:])
+    for candidate in (*candidates, body[4:], body):
         if not candidate or len(candidate) % 16:
             continue
         try:

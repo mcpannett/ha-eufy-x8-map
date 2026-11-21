@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 (21 Nov 2026)
+
+- Capture decoder now reads the robot's replies (4-byte return code before the `3.3` header), not just the app's commands.
+- **Confirmed from a real app capture:** return home = DPS 101 `true`; spot clean = DPS 124 `{"method":"goto","data":{"target":"spot","cleanTimes":1,"x":…,"y":…}}`. Its x/y use the same frame as the live position, so map pixel = (x − origin) / 10.
+
 ## 0.4.0 (21 Nov 2026)
 
 - **Decode capture** service (read-only, returns a response): decrypts captured Eufy-app traffic inside Home Assistant using the account session, so no password is typed anywhere and the robot's local key never leaves HA. Input is the Tuya-port flows extracted from a PCAPdroid capture.
