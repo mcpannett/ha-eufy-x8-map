@@ -1,0 +1,102 @@
+import base64, json, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "custom_components" / "eufy_x8_map"))
+from lib.commands import CommandRecorder, decode_b64_json, history_entries, map_version, pick_dps  # noqa: E402
+
+
+def b64(obj):
+    return base64.b64encode(json.dumps(obj).encode()).decode()
+
+
+def test_pick_dps_never_keeps_local_key():
+    dev = {"localKey": "SECRET", "devId": "x", "dps": {"15": "Charging", "104": 100, "124": b64({"method": "goto"})}}
+    out = pick_dps(dev)
+    assert out.keys() == {"15", "124"} and "SECRET" not in json.dumps(out)
+
+
+def test_recorder_decodes_and_dedupes():
+    rec = CommandRecorder()
+    goto = b64({"method": "goto", "data": {"target": "go", "x": 1, "y": 2}, "result": "O", "timestamp": 5})
+    assert rec.add("124", goto, "t1", "state")
+    assert not rec.add("124", goto, "t2", "state")
+    assert rec.add("125", b64({"defaultID": 3, "version": 7}), "t3", "state")
+    assert not rec.add("15", "Running", "t4", "state")
+    assert rec.items[1]["method"] == "goto" and rec.items[1]["data"]["x"] == 1 and rec.items[0]["data"]["version"] == 7
+    assert rec.add("124", "not-base64!!", "t5", "history") and rec.items[0]["raw"] == "not-base64!!"
+
+
+def test_history_entries_any_shape():
+    res = {"dps": [{"dpId": 124, "value": "abc", "timeStamp": 1}], "page": {"list": [{"dpid": "125", "value": "x", "time": 2}]}}
+    assert {(e["dp"], e["t"]) for e in history_entries(res)} == {("124", 1), ("125", 2)}
+
+
+def test_map_version():
+    assert map_version({"125": b64({"defaultID": 3, "version": 9})}) == (3, 9)
+    assert map_version({}) is None and decode_b64_json("short") is None
+
+
+def test_safe_list():
+    import pytest
+    from lib.commands import CommandRefused, check_method, encode_command
+    for ok in ["clear", "stop", "roomClean", "selectRoomsClean", "zoneClean", "spotClean"]:
+        assert check_method(ok) == ok
+    for bad in ["divideRoom", "mergeRooms", "renameRoom", "resetMap", "deleteMap", "saveMap", "otaUpdate",
+                "factoryReset", "setWifi", "", "drop table", "cleanMap", "goto"]:
+        with pytest.raises(CommandRefused):
+            check_method(bad)
+    value = encode_command("roomClean", {"ids": [3]}, now_ms=5)
+    assert json.loads(base64.b64decode(value)) == {"method": "roomClean", "data": {"ids": [3]}, "timestamp": 5}
+
+
+def test_pixel_pose_round_trip():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from test_integration_core import layout
+    from lib.engine import MapState
+    st = MapState(); st.update_layout(layout(origin=(-2320, -770)), 0)
+    assert st.to_pose((232.0, 77.0)) == (0, 0)
+    assert st.to_pixel(st.to_pose((120.9, 130.6))) == (120.9, 130.6)
+
+
+def test_room_clean_matches_app_capture():
+    from lib.commands import room_clean_dps, resolve_rooms
+    names = {1: "Porch", 2: "Hallway", 4: "Living Room", 6: "Bathroom", 7: "Kitchen"}
+    ids = resolve_rooms(["bathroom"], names, [1, 2, 4, 6, 7])
+    assert ids == [6]
+    dps = room_clean_dps(ids, 2, now_ms=1795257542233)
+    assert json.loads(base64.b64decode(dps["124"])) == {
+        "method": "selectRoomsClean", "data": {"roomIds": [6], "cleanTimes": 2}, "timestamp": 1795257542233}
+    assert resolve_rooms([6, "Kitchen", "6"], names, [1, 2, 4, 6, 7]) == [6, 7]
+
+
+def test_room_clean_refuses_unknown_or_bad():
+    import pytest
+    from lib.commands import CommandRefused, resolve_rooms, room_clean_dps
+    for bad in (["Garage"], [3], [], "99"):
+        with pytest.raises(CommandRefused):
+            resolve_rooms(bad, {6: "Bathroom"}, [6])
+    for times in (0, 4):
+        with pytest.raises(CommandRefused):
+            room_clean_dps([6], times)
+
+
+def test_spot_clean_matches_app_capture():
+    from lib.commands import check_method, spot_clean_dps
+    dps = spot_clean_dps(-831, 274, 1, now_ms=5)
+    assert json.loads(base64.b64decode(dps["124"])) == {
+        "method": "goto", "data": {"target": "spot", "cleanTimes": 1, "x": -831, "y": 274}, "timestamp": 5}
+    import pytest
+    with pytest.raises(Exception):
+        check_method("goto")  # plain goto stays blocked
+
+
+def test_default_is_two_passes():
+    from lib.commands import room_clean_dps, spot_clean_dps
+    assert json.loads(base64.b64decode(room_clean_dps([6], now_ms=1)["124"]))["data"]["cleanTimes"] == 2
+    assert json.loads(base64.b64decode(spot_clean_dps(0, 0, now_ms=1)["124"]))["data"]["cleanTimes"] == 2
+
+
+def test_map_request_matches_capture():
+    from lib.commands import map_request_dps
+    dps = map_request_dps("dev1", now_ms=1795257537744)
+    assert json.loads(base64.b64decode(dps["121"])) == {
+        "type": "mapData", "id": "dev1", "timestamp": 1795257537744}

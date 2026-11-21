@@ -1,0 +1,13 @@
+{
+  "domain": "eufy_x8_map",
+  "name": "Eufy X8 Map",
+  "codeowners": [
+    "@mcpannett"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/mcpannett/ha-eufy-x8-map",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/mcpannett/ha-eufy-x8-map/issues",
+  "requirements": [],
+  "version": "0.16.4"
+}

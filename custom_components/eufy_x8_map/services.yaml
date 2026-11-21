@@ -1,0 +1,178 @@
+command:
+  fields:
+    method:
+      required: true
+      example: goto
+      selector:
+        text:
+    data:
+      required: false
+      example: '{"target": "go", "x": 0, "y": 0}'
+      selector:
+        object:
+set_alerts:
+  fields:
+    notify_service:
+      example: 'notify.mobile_app_yourphone'
+      selector:
+        text:
+    test:
+      default: true
+      selector:
+        boolean:
+set_part_hours:
+  fields:
+    side_brush:
+      example: 81
+      selector:
+        number: {min: 0, max: 2000, mode: box}
+    rolling_brush:
+      example: 48
+      selector:
+        number: {min: 0, max: 2000, mode: box}
+    filter:
+      example: 48
+      selector:
+        number: {min: 0, max: 2000, mode: box}
+    sensors:
+      example: 15
+      selector:
+        number: {min: 0, max: 2000, mode: box}
+reset_part:
+  fields:
+    part:
+      required: true
+      selector:
+        select:
+          options: [side_brush, rolling_brush, filter, sensors]
+care_probe:
+rename_room:
+  fields:
+    room:
+      required: true
+      example: '1'
+      selector:
+        text:
+    name:
+      required: true
+      example: 'Porch'
+      selector:
+        text:
+return_home:
+clean_rooms:
+  fields:
+    rooms:
+      required: true
+      example: '["Bathroom"]'
+      selector:
+        object:
+    clean_times:
+      default: 2
+      selector:
+        number:
+          min: 1
+          max: 3
+spot_clean:
+  fields:
+    x:
+      example: -831
+      selector:
+        number:
+          min: -100000
+          max: 100000
+          mode: box
+    y:
+      example: 274
+      selector:
+        number:
+          min: -100000
+          max: 100000
+          mode: box
+    pixel_x:
+      example: 150
+      selector:
+        number:
+          min: 0
+          max: 4000
+          mode: box
+    pixel_y:
+      example: 92
+      selector:
+        number:
+          min: 0
+          max: 4000
+          mode: box
+    clean_times:
+      default: 2
+      selector:
+        number:
+          min: 1
+          max: 3
+goto:
+  fields:
+    x:
+      example: 0
+      selector:
+        number:
+          min: -100000
+          max: 100000
+          mode: box
+    y:
+      example: 0
+      selector:
+        number:
+          min: -100000
+          max: 100000
+          mode: box
+    pixel_x:
+      example: 120
+      selector:
+        number:
+          min: 0
+          max: 4000
+          mode: box
+    pixel_y:
+      example: 130
+      selector:
+        number:
+          min: 0
+          max: 4000
+          mode: box
+decode_capture:
+  fields:
+    flows:
+      required: true
+      selector:
+        object:
+local_probe:
+  fields:
+    host:
+      example: 192.168.1.50
+      selector:
+        text:
+local_listen:
+  fields:
+    seconds:
+      default: 20
+      selector:
+        number:
+          min: 2
+          max: 40
+    update_dps:
+      selector:
+        object:
+    map_request:
+      default: false
+      selector:
+        boolean:
+    request_id:
+      selector:
+        text:
+set_door_sensors:
+  fields:
+    doors:
+      required: true
+      example: '{"Bathroom": "binary_sensor.bathroom_door"}'
+      selector:
+        object:
+map_card_config:

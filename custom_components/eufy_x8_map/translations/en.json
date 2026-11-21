@@ -1,0 +1,363 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Eufy account",
+        "description": "Your password is used once to log in and is not stored.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "pick": {
+        "title": "Choose the vacuum",
+        "data": {
+          "device_id": "Vacuum"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Eufy refused the email or password.",
+      "cannot_connect": "Couldn't reach Eufy.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This vacuum's map is already set up.",
+      "no_vacuums": "No vacuums found on this Eufy account."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Map options",
+        "description": "Room names: type them as number=name, comma separated, e.g. 1=Living Room, 2=Hallway. The numbers are in the map camera's room_names attribute. Vacuum entity (optional) switches the map to fast updates as soon as cleaning starts. Robot IP is only needed if the local link can't find the robot by itself.",
+        "data": {
+          "vacuum_entity": "Vacuum entity",
+          "room_names": "Room names",
+          "orientation": "Map layout",
+          "robot_host": "Robot IP (optional)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "camera": {
+      "map": {
+        "name": "Map"
+      }
+    },
+    "sensor": {
+      "current_room": {
+        "name": "Current room"
+      },
+      "route_points": {
+        "name": "Route points"
+      },
+      "map_activity": {
+        "name": "Map activity"
+      },
+      "robot_status": {
+        "name": "Robot status"
+      },
+      "recorded_commands": {
+        "name": "Recorded app commands"
+      },
+      "battery": {
+        "name": "Battery"
+      },
+      "suction": {
+        "name": "Suction"
+      },
+      "clean_mode": {
+        "name": "Clean mode"
+      },
+      "local_link_status": {
+        "name": "Local link status"
+      },
+      "clean_time": {
+        "name": "Clean time"
+      },
+      "clean_area": {
+        "name": "Clean area"
+      },
+      "run_code": {
+        "name": "Run code"
+      },
+      "part_side_brush": {
+        "name": "Side brush"
+      },
+      "part_rolling_brush": {
+        "name": "Rolling brush"
+      },
+      "part_filter": {
+        "name": "Filter"
+      },
+      "part_sensors": {
+        "name": "Sensors"
+      },
+      "rooms_due": {
+        "name": "Rooms due"
+      },
+      "cleans_week": {
+        "name": "Cleans this week"
+      }
+    },
+    "button": {
+      "refresh_map": {
+        "name": "Refresh map"
+      },
+      "clean_selected": {
+        "name": "Clean selected rooms"
+      },
+      "clean_all": {
+        "name": "Clean all rooms"
+      },
+      "clean_due": {
+        "name": "Clean due rooms"
+      }
+    },
+    "switch": {
+      "record_commands": {
+        "name": "Record app commands"
+      },
+      "allow_commands": {
+        "name": "Allow commands"
+      },
+      "local_link": {
+        "name": "Local link"
+      },
+      "map_labels": {
+        "name": "Room names on map"
+      }
+    },
+    "select": {
+      "suction_level": {
+        "name": "Suction level"
+      },
+      "map_layout": {
+        "name": "Map layout",
+        "state": {
+          "app": "As in the Eufy app",
+          "landscape_right": "Sideways (right)",
+          "landscape_left": "Sideways (left)",
+          "stored": "As stored"
+        }
+      },
+      "map_size": {
+        "name": "Map size",
+        "state": {
+          "full": "Full width",
+          "compact": "Compact (4:3)",
+          "square": "Square"
+        }
+      }
+    },
+    "number": {
+      "topup_days": {
+        "name": "Top-up after"
+      }
+    }
+  },
+  "services": {
+    "command": {
+      "name": "Send command",
+      "description": "Send a command to the X8 (testing). Needs 'Allow commands' on. Map-changing methods are always refused.",
+      "fields": {
+        "method": {
+          "name": "Method",
+          "description": "e.g. goto, clear, or a cleaning method."
+        },
+        "data": {
+          "name": "Data",
+          "description": "Optional command data (JSON object)."
+        }
+      }
+    },
+    "return_home": {
+      "name": "Return home",
+      "description": "Send the X8 back to its dock. Needs 'Allow commands' on."
+    },
+    "goto": {
+      "name": "Go to",
+      "description": "Send the X8 to a point (sends 'clear', waits 35 s, then 'goto'). Give x/y in robot units or pixel_x/pixel_y on the map. Needs 'Allow commands' on.",
+      "fields": {
+        "x": {
+          "name": "X",
+          "description": "Robot units."
+        },
+        "y": {
+          "name": "Y",
+          "description": "Robot units."
+        },
+        "pixel_x": {
+          "name": "Map pixel X",
+          "description": "Map pixel (stored layout)."
+        },
+        "pixel_y": {
+          "name": "Map pixel Y",
+          "description": "Map pixel (stored layout)."
+        }
+      }
+    },
+    "decode_capture": {
+      "name": "Decode capture",
+      "description": "Read-only. Decrypts captured Eufy app traffic (Tuya port 6668 flows) inside Home Assistant and returns the decoded commands. The robot's local key never leaves Home Assistant.",
+      "fields": {
+        "flows": {
+          "name": "Flows",
+          "description": "List of captured flows: to_robot, t and base64 data."
+        }
+      }
+    },
+    "clean_rooms": {
+      "name": "Clean rooms",
+      "description": "Clean the chosen rooms, as the Eufy app does. Needs 'Allow commands' on.",
+      "fields": {
+        "rooms": {
+          "name": "Rooms",
+          "description": "Room names (from the room names option) or room numbers."
+        },
+        "clean_times": {
+          "name": "Passes",
+          "description": "How many passes, 1 to 3. Default 2 (criss-cross)."
+        }
+      }
+    },
+    "spot_clean": {
+      "name": "Spot clean",
+      "description": "Spot clean one point, as the Eufy app does. Give x/y in robot units or pixel_x/pixel_y on the stored map. The point must be inside a room. Needs 'Allow commands' on.",
+      "fields": {
+        "x": {
+          "name": "X",
+          "description": "Robot units (dock is 0)."
+        },
+        "y": {
+          "name": "Y",
+          "description": "Robot units (dock is 0)."
+        },
+        "pixel_x": {
+          "name": "Map pixel X",
+          "description": "Map pixel (stored layout)."
+        },
+        "pixel_y": {
+          "name": "Map pixel Y",
+          "description": "Map pixel (stored layout)."
+        },
+        "clean_times": {
+          "name": "Passes",
+          "description": "How many passes, 1 to 3. Default 2 (criss-cross)."
+        }
+      }
+    },
+    "local_probe": {
+      "name": "Local probe",
+      "description": "Read-only: find the robot on the LAN and read its status once. Sends no commands.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Robot IP to try (optional)."
+        }
+      }
+    },
+    "local_listen": {
+      "name": "Local listen (research)",
+      "description": "Ask the robot to re-report values over the LAN and list what it sends back. Optionally sends the app's map request (needs Allow commands).",
+      "fields": {
+        "seconds": {
+          "name": "Seconds",
+          "description": "How long to listen."
+        },
+        "update_dps": {
+          "name": "DPS to re-report",
+          "description": "List of DPS numbers."
+        },
+        "map_request": {
+          "name": "Send map request",
+          "description": "Send the app's DPS 121 map request."
+        },
+        "request_id": {
+          "name": "Request id",
+          "description": "Id field for the map request (default: the one from the capture)."
+        }
+      }
+    },
+    "set_door_sensors": {
+      "name": "Set door sensors",
+      "description": "Link rooms to door sensors. A room is skipped while its door is closed.",
+      "fields": {
+        "doors": {
+          "name": "Doors",
+          "description": "Room name or number mapped to a binary sensor; empty removes the link."
+        }
+      }
+    },
+    "map_card_config": {
+      "name": "Map card config",
+      "description": "Read-only: returns a ready-made config for the Xiaomi Vacuum Map card."
+    },
+    "rename_room": {
+      "name": "Rename room",
+      "description": "Change a room's name in HA only (no robot command; the Eufy app keeps its own labels). Leave the name empty to go back to 'Room N'.",
+      "fields": {
+        "room": {
+          "name": "Room",
+          "description": "Room number, or its current name."
+        },
+        "name": {
+          "name": "New name",
+          "description": "Up to 40 characters."
+        }
+      }
+    },
+    "set_alerts": {
+      "name": "Set phone alerts",
+      "description": "Send stuck/error, door-closed and worn-part alerts to a phone (with the live map). Leave empty for HA notifications only.",
+      "fields": {
+        "notify_service": {
+          "name": "Notify action",
+          "description": "e.g. notify.mobile_app_yourphone."
+        },
+        "test": {
+          "name": "Send a test",
+          "description": "Send a test alert straight away."
+        }
+      }
+    },
+    "care_probe": {
+      "name": "Read part wear",
+      "description": "Read-only: fetch brush, filter and sensor wear from the cloud logs now."
+    },
+    "set_part_hours": {
+      "name": "Set part hours",
+      "description": "Hours used per part (lifespan minus the app's 'remaining hours'). HA then adds cleaning time itself.",
+      "fields": {
+        "side_brush": {
+          "name": "Side brush",
+          "description": "Hours used."
+        },
+        "rolling_brush": {
+          "name": "Rolling brush",
+          "description": "Hours used."
+        },
+        "filter": {
+          "name": "Filter",
+          "description": "Hours used."
+        },
+        "sensors": {
+          "name": "Sensors",
+          "description": "Hours used."
+        }
+      }
+    },
+    "reset_part": {
+      "name": "Reset part",
+      "description": "You replaced a part: its hours go back to 0.",
+      "fields": {
+        "part": {
+          "name": "Part",
+          "description": "Which part was replaced."
+        }
+      }
+    }
+  }
+}
