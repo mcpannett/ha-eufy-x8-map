@@ -10,6 +10,7 @@ from .const import CONF_ORIENTATION, CONF_ROOM_NAMES, DOMAIN
 from .coordinator import X8MapCoordinator
 from .entity import X8MapEntity
 from .lib.engine import parse_room_names
+from .lib.render import calibration_points
 from .lib.render import render_png
 
 
@@ -51,6 +52,7 @@ class X8MapCamera(X8MapEntity, Camera):
             "map_format": lay.fmt if lay else None,
             "map_error": self.coordinator.map_error,
             "map_source": self.coordinator.map_source,
+            "calibration_points": calibration_points(state, 3, self.coordinator.entry.options.get(CONF_ORIENTATION, "app")),
             "cloud_error": self.coordinator.cloud_error,
         }
 

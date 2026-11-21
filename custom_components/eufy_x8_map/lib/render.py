@@ -39,7 +39,7 @@ def content_box(state: MapState, margin: int = 6) -> tuple[int, int, int, int] |
         if idx:
             xs += (idx[0], idx[-1])
             ys.append(y)
-    points = [p for p in (state.dock, state.robot) if p] + [p for piece in state.route_pixels() for p in piece]
+    points = [state.dock] if state.dock else []  # rooms + dock only, so the crop (and calibration) stays stable
     for px, py in points:
         xs.append(int(px))
         ys.append(int(py))
@@ -112,3 +112,23 @@ def render_png(state: MapState, scale: int = 3, room_colours: dict[int, tuple[in
                 out[j:j + 4] = row[x * 4:x * 4 + 4]
         return _png(h, w, out)
     return _png(w, h, rgba)
+
+
+def calibration_points(state: MapState, scale: int = 3, orientation: str = "stored", crop: bool = True) -> list[dict] | None:
+    """Three robot-pose <-> image-pixel pairs for map cards (e.g. the Xiaomi Vacuum Map card)."""
+    lay = state.layout
+    if lay is None or "origin" not in getattr(lay, "header", {}):
+        return None
+    x0, y0 = (0, 0)
+    if crop:
+        box = content_box(state)
+        if box:
+            x0, y0 = box[0], box[1]
+    points = []
+    for pose in ((0, 0), (1000, 0), (0, 1000)):
+        px, py = state.to_pixel(pose)
+        ix, iy = (px - x0) * scale + scale / 2, (py - y0) * scale + scale / 2
+        if orientation == "app":
+            ix, iy = iy, ix
+        points.append({"vacuum": {"x": pose[0], "y": pose[1]}, "map": {"x": round(ix, 1), "y": round(iy, 1)}})
+    return points

@@ -11,7 +11,7 @@ from .coordinator import X8MapCoordinator
 from .services import async_register
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
-PLATFORMS = [Platform.BUTTON, Platform.CAMERA, Platform.SELECT, Platform.SENSOR, Platform.SWITCH]
+PLATFORMS = [Platform.BUTTON, Platform.CAMERA, Platform.SELECT, Platform.SENSOR, Platform.SWITCH, Platform.VACUUM]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -21,6 +21,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             **entry.options, CONF_ALLOW_COMMANDS: True, CONF_LOCAL_LINK: True, CONTROLS_DEFAULT_APPLIED: True})
     coordinator = X8MapCoordinator(hass, entry)
     await coordinator.async_load_cache()
+    await coordinator.async_load_history()
     await coordinator.async_config_entry_first_refresh()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

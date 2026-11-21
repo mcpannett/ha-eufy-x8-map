@@ -170,3 +170,20 @@ def test_render_crops_to_rooms():
     assert content_box(st) == (34, 24, 76, 56)
     png = render_png(st, 3, None, "stored")
     assert struct.unpack(">II", png[16:24]) == (42 * 3, 32 * 3)
+
+
+def test_calibration_matches_render_dot():
+    from types import SimpleNamespace
+    from lib.engine import MapState
+    from lib.render import calibration_points, content_box
+    W, H = 100, 80
+    px = bytearray([0xFF]) * (W * H)
+    for y in range(30, 50):
+        for x in range(40, 70):
+            px[y * W + x] = 2 << 2
+    st = MapState()
+    st.layout = SimpleNamespace(width=W, height=H, pixels=bytes(px), header={"origin": (-500, -400)})
+    pts = calibration_points(st, 3, "app")
+    box = content_box(st)
+    dock_img = ((40 - box[1]) * 3 + 1.5, (50 - box[0]) * 3 + 1.5)  # transposed
+    assert (pts[0]["map"]["x"], pts[0]["map"]["y"]) == dock_img

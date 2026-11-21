@@ -21,6 +21,7 @@ from .const import (
 from .lib.commands import CommandRecorder, encode_command, history_entries, map_version
 from .lib.engine import Account, MapState, X8Client
 from .lib.x8map import decode_any
+from .lib.history import RunTracker
 from .lib.local import LocalLink, discover
 from .lib.map_fetch import MapFetchError
 
@@ -56,11 +57,51 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._link_task: asyncio.Task | None = None
         self._decoded = False
         self.selected_rooms: set[int] = set()  # rooms ticked on the card for "Clean selected"
+        self.tracker = RunTracker()
+        self.last_run: dict = {}
+        self._history_store: Store = Store(hass, 1, f"{DOMAIN}.{entry.data[CONF_DEVICE_ID]}.history")
         # Offline copy of the room layout (not secret: floor plan only).
         self._store: Store = Store(hass, 1, f"{DOMAIN}.{entry.data[CONF_DEVICE_ID]}.layout")
         self._cached_raw: bytes | None = None
         self.map_source: str | None = None
         self.cloud_error: str | None = None
+
+    async def async_load_history(self) -> None:
+        data = await self._history_store.async_load() or {}
+        self.tracker.last_cleaned = {int(k): v for k, v in (data.get("last_cleaned") or {}).items()}
+        self.last_run = data.get("last_run") or {}
+
+    def _track(self) -> None:
+        """Run tracking: room history, HA events (eufy_x8_map_event) and stuck/error alerts."""
+        state = self.state
+        room = None if state.docked else state.room_at(state.robot)
+        events = self.tracker.update(self.dp("15"), room, self.dp("106"), time.monotonic(), dt_util.utcnow().timestamp())
+        if not events:
+            return
+        from homeassistant.components import persistent_notification
+        from .const import CONF_ROOM_NAMES
+        from .lib.engine import parse_room_names
+        names = parse_room_names(self.entry.options.get(CONF_ROOM_NAMES))
+        save = False
+        for event in events:
+            data = dict(event)
+            if "room" in data:
+                data["room_name"] = names.get(data["room"], f"Room {data['room']}")
+            if event["type"] == "clean_finished":
+                data["room_names"] = [names.get(r, f"Room {r}") for r in event["rooms"]]
+                data["area_m2"] = self.dp("110")
+                self.last_run = {**data, "finished": dt_util.utcnow().isoformat(timespec="seconds")}
+                persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_error")
+            if event["type"] in ("room_cleaned", "clean_finished"):
+                save = True
+            if event["type"] == "error":
+                persistent_notification.async_create(
+                    self.hass, f"The X8 reported a problem (code {event['code']}). It may be stuck or need help.",
+                    title="Eufy X8 needs attention", notification_id=f"{DOMAIN}_error")
+            self.hass.bus.async_fire(f"{DOMAIN}_event", data)
+        if save:
+            self._history_store.async_delay_save(lambda: {
+                "last_cleaned": {str(k): v for k, v in self.tracker.last_cleaned.items()}, "last_run": self.last_run}, 5)
 
     async def async_load_cache(self) -> None:
         """Load the saved layout so the map works even if the cloud is down at start-up."""
@@ -97,6 +138,7 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._decoded = True
         self.local_dps.update(dps)
         self._sync_docked()
+        self._track()
         if self.recording:
             stamp = dt_util.utcnow().isoformat(timespec="seconds")
             for dp, value in dps.items():
@@ -201,6 +243,18 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
         self._last_dps = -1e9  # look for the echo straight away
         self.async_update_listeners()
 
+    async def async_vacuum(self, action: str) -> None:
+        """Basic controls. Formats: DPS 101 from the app capture; 2/5/103 from damacus/robovac's X8 (T2262) model."""
+        payloads = {
+            "start": {"5": "Auto", "2": True},
+            "resume": {"2": True},
+            "pause": {"2": False},
+            "home": {"101": True},
+            "locate": {"103": True},
+            "spot_here": {"5": "Spot"},
+        }
+        await self.async_send(payloads[action], action)
+
     async def async_set_suction(self, level: str) -> None:
         from .const import SUCTION_LEVELS
         if level not in SUCTION_LEVELS:
@@ -240,13 +294,14 @@ class X8MapCoordinator(DataUpdateCoordinator[MapState]):
             self.cloud_error = None
             self.state.update_frames(record, frames, now)
         await self._poll_dps(now)
-        active = self.state.is_active(now) or self._vacuum_active()
+        active = self.state.is_active(now) or self._vacuum_active() or self.dp("15") in ("Running", "Recharge", "Locating")
         map_age = None if self.state.layout_time is None else now - self.state.layout_time
         due = map_age is None or map_age >= (ACTIVE_MAP_S if active else IDLE_MAP_S)
         if (self.force_map or due) and now >= self._map_retry_at:
             self.force_map = False
             await self._refresh_map(now)
         self._sync_docked()
+        self._track()
         self.update_interval = timedelta(seconds=ACTIVE_POLL_S if active else IDLE_POLL_S)
         return self.state
 

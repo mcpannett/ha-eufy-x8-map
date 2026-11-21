@@ -21,7 +21,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                         RobotStatusSensor(coordinator), RecordedCommandsSensor(coordinator),
                         BatterySensor(coordinator), SuctionSensor(coordinator), CleanModeSensor(coordinator),
                         LocalLinkSensor(coordinator), CleanTimeSensor(coordinator), CleanAreaSensor(coordinator),
-                        RunCodeSensor(coordinator)])
+                        RunCodeSensor(coordinator)]
+                       + [RoomLastCleanedSensor(coordinator, r, parse_room_names(entry.options.get(CONF_ROOM_NAMES)).get(r, f"Room {r}"))
+                          for r in coordinator.state.rooms])
 
 
 class CurrentRoomSensor(X8MapEntity, SensorEntity):
@@ -207,3 +209,22 @@ class RunCodeSensor(_Number):
 
 
 RUN_CODES = {0: "ok", 24: "room unreachable (seen with a closed door)"}
+
+
+class RoomLastCleanedSensor(X8MapEntity, SensorEntity):
+    """When the robot last cleaned this room (at least 30 s inside it during a run). Kept across restarts."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:history"
+
+    def __init__(self, coordinator: X8MapCoordinator, room: int, name: str) -> None:
+        super().__init__(coordinator, f"last_cleaned_{room}")
+        self._room = room
+        self._attr_translation_key = None
+        self._attr_name = f"{name} last cleaned"
+
+    @property
+    def native_value(self):
+        from datetime import datetime, timezone
+        ts = self.coordinator.tracker.last_cleaned.get(self._room)
+        return datetime.fromtimestamp(ts, timezone.utc) if ts else None

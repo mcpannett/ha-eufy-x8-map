@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0 (21 Nov 2026) - next milestone, part 1
+- **Vacuum entity** (`vacuum.robovac_map`): start, pause, stop, return home, locate, spot-here, suction - all over the LAN. Formats: return home from the app capture; start/pause/locate/spot from damacus/robovac's X8 (T2262) model.
+- **Area cleaning**: rooms are offered to HA as segments, so after mapping them to HA areas (vacuum entity settings) `vacuum.clean_area` and voice ("clean the kitchen") work. Two passes.
+- **Room history**: a "<room> last cleaned" sensor per room (30 s+ inside during a run), kept across restarts; last run summary on the vacuum.
+- **Events**: `eufy_x8_map_event` with type clean_started / room_entered / room_cleaned / clean_finished / error, for automations.
+- **Stuck/error alert**: notification when the robot reports an error (DPS 106) or needs recharging.
+- Map camera now publishes `calibration_points` for interactive map cards; crop is based on rooms + dock so it stays stable.
+
 ## 0.9.0 (21 Nov 2026)
 - Map image is cropped to the house (no big empty margins on the card).
 - Room picking: a **Select <room>** switch per room (HA-side only), **Clean selected rooms** (one run, two passes, clears the ticks) and **Clean all rooms** buttons.
